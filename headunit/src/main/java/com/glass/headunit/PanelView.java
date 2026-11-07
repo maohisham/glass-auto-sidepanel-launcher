@@ -48,14 +48,13 @@ final class PanelView extends LinearLayout {
     private NowPlaying now = NowPlaying.idle();
     private long nowReceivedAt;
 
-    private LinearLayout headerBlock, topRow, stripBox, banners, nowBox, songRow, mediaRow, progRow, lyricList, idleBox;
+    private LinearLayout headerBlock, topRow, stripBox, banners, nowBox, songRow, mediaRow, progRow, barBox, lyricList, idleBox;
     private CoverView coverView, radioCover;
     private LinearLayout radioBox, radioArea;
     private TextView radioTitle, radioInfo, radioPlayer;
     private MaxHeightScrollView headerScroll;
     private TextView weatherText, prayerText, title, artist, bigText, header, elapsedText, durationText, idleNote;
     private IconView shuffleBtn, repeatBtn, prevBtn, mainBtn, nextBtn;
-    private View leftSpacer, rightSpacer;
     private BarView mediaBar;
     private PrayerTableView idleTable;
     private TextView idleWeather;
@@ -304,43 +303,44 @@ final class PanelView extends LinearLayout {
         songRow.addView(words, wl);
         nowBox.addView(songRow);
 
-        // progress: elapsed, bar with a knob, length
+        // second row: shuffle, elapsed, bar with a knob, length, repeat
         progRow = new LinearLayout(getContext());
         progRow.setOrientation(HORIZONTAL);
         progRow.setGravity(Gravity.CENTER_VERTICAL);
         progRow.setPadding(0, dp(6), 0, 0);
+        shuffleBtn = icon(Icon.SHUFFLE, "Shuffle", 36, IconView.Style.NORMAL, () -> { if (controls != null) controls.toggleShuffle(); });
+        repeatBtn = icon(Icon.REPEAT, "Repeat off", 36, IconView.Style.NORMAL, () -> { if (controls != null) controls.toggleRepeat(); });
         elapsedText = text(12, false, dim);
         durationText = text(12, false, dim);
         mediaBar = new BarView(getContext(), dark, true);
-        progRow.addView(elapsedText);
+        barBox = new LinearLayout(getContext());
+        barBox.setOrientation(HORIZONTAL);
+        barBox.setGravity(Gravity.CENTER_VERTICAL);
+        barBox.addView(elapsedText);
         LayoutParams barLp = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
         barLp.leftMargin = dp(8);
         barLp.rightMargin = dp(8);
-        progRow.addView(mediaBar, barLp);
-        progRow.addView(durationText);
+        barBox.addView(mediaBar, barLp);
+        barBox.addView(durationText);
+        progRow.addView(shuffleBtn);
+        LayoutParams bb = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
+        bb.leftMargin = dp(8);
+        bb.rightMargin = dp(8);
+        progRow.addView(barBox, bb);
+        progRow.addView(repeatBtn);
         nowBox.addView(progRow);
 
-        // one line of media controls: shuffle, previous, play or pause, next (a spacer keeps play centred beside shuffle)
+        // previous, play or pause, next: at the right end of the song row when there is room, else on a line of their own
+        // (placeControls puts them where they belong; for radio they sit under the station card)
         mediaRow = new LinearLayout(getContext());
         mediaRow.setOrientation(HORIZONTAL);
         mediaRow.setGravity(Gravity.CENTER);
-        mediaRow.setPadding(0, dp(6), 0, 0);
-        shuffleBtn = icon(Icon.SHUFFLE, "Shuffle", 36, IconView.Style.NORMAL, () -> { if (controls != null) controls.toggleShuffle(); });
         prevBtn = icon(Icon.PREV, "Previous", 44, IconView.Style.NORMAL, () -> { if (controls != null) controls.previous(); });
         mainBtn = icon(Icon.PLAY, "Play", 52, IconView.Style.MAIN, () -> { if (controls != null) { if (now.playing) controls.pause(); else controls.play(); } });
         nextBtn = icon(Icon.NEXT, "Next", 44, IconView.Style.NORMAL, () -> { if (controls != null) controls.next(); });
-        repeatBtn = icon(Icon.REPEAT, "Repeat off", 36, IconView.Style.NORMAL, () -> { if (controls != null) controls.toggleRepeat(); });
-        // invisible spacers keep play centred when only one of shuffle and repeat is offered
-        leftSpacer = new View(getContext());
-        rightSpacer = new View(getContext());
-        mediaRow.addView(shuffleBtn);
-        mediaRow.addView(leftSpacer, new LayoutParams(Glass.dp(getContext(), iconDp(36)), 1));
-        mediaRow.addView(prevBtn, gapped(8));
-        mediaRow.addView(mainBtn, gapped(8));
-        mediaRow.addView(nextBtn, gapped(8));
-        mediaRow.addView(rightSpacer, new LayoutParams(Glass.dp(getContext(), iconDp(36)) + dp(8), 1));
-        mediaRow.addView(repeatBtn, gapped(8));
-        nowBox.addView(mediaRow);
+        mediaRow.addView(prevBtn);
+        mediaRow.addView(mainBtn, gapped(6));
+        mediaRow.addView(nextBtn, gapped(6));
 
         headerBlock.addView(nowBox);
 
@@ -530,19 +530,21 @@ final class PanelView extends LinearLayout {
         coverView.setVisibility(idle ? GONE : VISIBLE);
         mainBtn.setIcon(now.playing ? Icon.PAUSE : Icon.PLAY);
         mainBtn.setContentDescription(now.playing ? "Pause" : "Play");
-        boolean showShuffle = !idle && now.shuffleAvailable;
-        boolean showRepeat = !idle && now.repeatAvailable;
+        boolean radio = !idle && ControlsPolicy.isRadio(now.pkg);
+        boolean showShuffle = !idle && !radio && now.shuffleAvailable;
+        boolean showRepeat = !idle && !radio && now.repeatAvailable;
+        boolean showProgress = !idle && ControlsPolicy.showProgress(now.pkg, now.durationMs);
         shuffleBtn.setVisibility(showShuffle ? VISIBLE : GONE);
         repeatBtn.setVisibility(showRepeat ? VISIBLE : GONE);
-        leftSpacer.setVisibility(!showShuffle && showRepeat ? VISIBLE : GONE);
-        rightSpacer.setVisibility(showShuffle && !showRepeat ? VISIBLE : GONE);
         repeatBtn.setIcon(now.repeatMode == android.support.v4.media.session.PlaybackStateCompat.REPEAT_MODE_ONE ? Icon.REPEAT_ONE : Icon.REPEAT);
         repeatBtn.setStyle(RepeatMode.isOn(now.repeatMode) ? IconView.Style.ON : IconView.Style.NORMAL);
         repeatBtn.setContentDescription(RepeatMode.label(now.repeatMode));
         shuffleBtn.setStyle(now.shuffleOn ? IconView.Style.ON : IconView.Style.NORMAL);
         shuffleBtn.setContentDescription(now.shuffleOn ? "Shuffle on" : "Shuffle off");
         mediaRow.setVisibility(idle ? GONE : VISIBLE);
-        progRow.setVisibility(!idle && ControlsPolicy.showProgress(now.pkg, now.durationMs) ? VISIBLE : GONE);
+        // the bar keeps its room (INVISIBLE) when only shuffle or repeat is offered, so those stay at the two ends
+        progRow.setVisibility(showShuffle || showRepeat || showProgress ? VISIBLE : GONE);
+        barBox.setVisibility(showProgress ? VISIBLE : INVISIBLE);
         if (idle) {
             title.setText("Nothing playing");
             artist.setText("");
@@ -551,7 +553,6 @@ final class PanelView extends LinearLayout {
             artist.setText(now.artist);
         }
         artist.setVisibility(artist.getText().length() == 0 ? GONE : VISIBLE);
-        boolean radio = !idle && ControlsPolicy.isRadio(now.pkg);
         placeControls(radio);
         songRow.setVisibility(radio ? GONE : VISIBLE);
         if (radio) {
@@ -564,19 +565,21 @@ final class PanelView extends LinearLayout {
         bindProgress();
     }
 
-    /** Radio: the controls sit under the station card; for music they stay in the header above the lyrics. */
+    /** Where the previous, play and next buttons live: under the station card for radio, at the right of the song row when it is wide enough, else on their own line. */
     private void placeControls(boolean radio) {
-        ViewGroup want = radio ? radioArea : nowBox;
+        boolean beside = MediaLayout.buttonsBesideSong(getResources().getConfiguration().screenWidthDp);
+        ViewGroup want = radio ? radioArea : beside ? songRow : nowBox;
         if (mediaRow.getParent() == want) return;
         if (mediaRow.getParent() != null) ((ViewGroup) mediaRow.getParent()).removeView(mediaRow);
-        LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
-        if (radio) lp.topMargin = dp(16);
-        want.addView(mediaRow, lp);
+        LayoutParams lp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        if (radio) { lp.width = LayoutParams.MATCH_PARENT; lp.topMargin = dp(16); radioArea.addView(mediaRow, lp); }
+        else if (beside) { lp.leftMargin = dp(6); songRow.addView(mediaRow, lp); }
+        else { lp.width = LayoutParams.MATCH_PARENT; lp.topMargin = dp(6); nowBox.addView(mediaRow, 1, lp); }
     }
 
     /** The song's bar moves between updates: the position we were told plus the time since, while it plays. */
     private void bindProgress() {
-        if (progRow.getVisibility() != VISIBLE) return;
+        if (progRow.getVisibility() != VISIBLE || barBox.getVisibility() != VISIBLE) return;
         long pos = MediaProgress.extrapolate(now.positionMs, nowReceivedAt, SystemClock.elapsedRealtime(), now.playing, now.durationMs);
         mediaBar.setFraction(MediaProgress.fraction(pos, now.durationMs));
         elapsedText.setText(MediaProgress.format(pos));
