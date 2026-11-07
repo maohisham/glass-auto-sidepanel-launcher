@@ -40,4 +40,38 @@ public class BubbleGeometryTest {
         assertEquals(480, r[0]);
         assertEquals(320, r[2]);
     }
+
+    @Test
+    public void thePickerIsExactlyTheRealPanelWindowWhateverSideItIsOn() {
+        assertEquals(java.util.Arrays.toString(new int[]{0, 92, 1516, 1655}), java.util.Arrays.toString(BubbleGeometry.pickerAt(new int[]{0, 92, 1516, 1655})));
+    }
+
+    @Test
+    public void theBubbleStartsInsideTheRealPanelWindow() {
+        // panel on the left, 1000 px wide, 1250 tall: the bubble sits at its inner right edge, 55% down
+        int[] xy = BubbleGeometry.startIn(new int[]{0, 0, 1000, 1250}, 150, 24);
+        assertEquals(826, xy[0]);
+        assertEquals(688, xy[1]);
+    }
+
+    @Test
+    public void theBubbleStaysInsideAShortPanelWindow() {
+        int[] xy = BubbleGeometry.startIn(new int[]{1000, 100, 1000, 300}, 150, 24);
+        assertEquals(1826, xy[0]);
+        assertEquals(100 + 300 - 150 - 24, xy[1]);
+    }
+
+    @Test
+    public void overlayWindowsMeasureFromBelowTheStatusBarSoThePanelBoundsAreShiftedUp() {
+        // seen on the tablet: the panel starts at y=92 (under the 92 px status bar), but an overlay's y=0 is already there
+        int[] r = BubbleGeometry.toOverlay(new int[]{1516, 92, 1492, 1655}, new int[]{0, 92});
+        assertEquals(java.util.Arrays.toString(new int[]{1516, 0, 1492, 1655}), java.util.Arrays.toString(r));
+    }
+
+    @Test
+    public void aTwoNumberPointIsShiftedTheSameWay() {
+        int[] p = BubbleGeometry.toOverlayPoint(new int[]{2800, 1000}, new int[]{10, 92});
+        assertEquals(2790, p[0]);
+        assertEquals(908, p[1]);
+    }
 }

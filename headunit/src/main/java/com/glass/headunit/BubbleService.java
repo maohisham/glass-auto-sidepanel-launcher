@@ -14,7 +14,12 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.WindowManager;
-import android.widget.TextView;
+import android.media.session.MediaController;
+import android.media.session.MediaSessionManager;
+import android.media.session.PlaybackState;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * The optional floating player bubble: a small static round button above other apps. It starts inside the panel's
@@ -24,7 +29,14 @@ import android.widget.TextView;
 public class BubbleService extends Service {
 
     private WindowManager wm;
-    private TextView bubble;
+    private BubbleFace bubble;
+    private MediaSessionManager msm;
+    private final List<MediaController> watched = new ArrayList<>();
+    private final MediaController.Callback sessionCallback = new MediaController.Callback() {
+        @Override public void onPlaybackStateChanged(PlaybackState state) { refreshFace(); }
+        @Override public void onSessionDestroyed() { refreshFace(); }
+    };
+    private final MediaSessionManager.OnActiveSessionsChangedListener sessionsListener = list -> { watch(list); refreshFace(); };
     private WindowManager.LayoutParams bubbleParams;
     private PlayerPicker picker;
 
@@ -58,15 +70,8 @@ public class BubbleService extends Service {
         Settings s = Settings.of(this);
         int size = dp(64);
 
-        bubble = new TextView(this);
-        bubble.setText("Player");
-        bubble.setTextSize(11f);
-        bubble.setTextColor(Color.BLACK);
-        bubble.setGravity(Gravity.CENTER);
-        GradientDrawable bg = new GradientDrawable();
-        bg.setShape(GradientDrawable.OVAL);
-        bg.setColor(PanelStyle.ACCENT_DARK);
-        bubble.setBackground(bg);
+        boolean nightNow = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        bubble = new BubbleFace(this, PanelStyle.isDark(s.theme(), nightNow), size);
 
         bubbleParams = new WindowManager.LayoutParams(size, size, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, PixelFormat.TRANSLUCENT);
@@ -74,7 +79,10 @@ public class BubbleService extends Service {
         Rect b = screen();
         if (s.bubbleX() >= 0) { bubbleParams.x = s.bubbleX(); bubbleParams.y = s.bubbleY(); }
         else {
-            int[] xy = BubbleGeometry.start(b.width(), b.height(), effectiveShare(), s.swapSides(), size, dp(16));
+            int[] real = PanelBounds.get();
+            int[] xy = real != null ? BubbleGeometry.startIn(real, size, dp(16))
+                    : BubbleGeometry.start(b.width(), b.height(), effectiveShare(), s.swapSides(), size, dp(16));
+            xy = BubbleGeometry.toOverlayPoint(xy, OverlayOrigin.of(this));
             bubbleParams.x = xy[0];
             bubbleParams.y = xy[1];
         }
@@ -106,6 +114,7 @@ public class BubbleService extends Service {
         try {
             wm.addView(bubble, bubbleParams);
             Spike.log("bubble: shown");
+            followPlayback();
         } catch (Exception e) {
             Spike.log("bubble: could not show " + e.getMessage());
             bubble = null;
@@ -113,11 +122,47 @@ public class BubbleService extends Service {
         }
     }
 
+    /** Shows the playing app's icon on the bubble, kept current by the system's media session callbacks (no polling). */
+    private void followPlayback() {
+        try {
+            msm = getSystemService(MediaSessionManager.class);
+            android.content.ComponentName listener = new android.content.ComponentName(this, MediaListener.class);
+            msm.addOnActiveSessionsChangedListener(sessionsListener, listener);
+            watch(msm.getActiveSessions(listener));
+        } catch (SecurityException e) { Spike.log("bubble: no notification access, so no app icon"); }   // the generic music icon stays
+        refreshFace();
+    }
+
+    private void watch(List<MediaController> sessions) {
+        for (MediaController c : watched) c.unregisterCallback(sessionCallback);
+        watched.clear();
+        if (sessions == null) return;
+        for (MediaController c : sessions) { c.registerCallback(sessionCallback); watched.add(c); }
+    }
+
+    private void refreshFace() {
+        if (bubble == null) return;
+        String[] pkgs = new String[watched.size()];
+        boolean[] playing = new boolean[watched.size()];
+        for (int i = 0; i < pkgs.length; i++) {
+            MediaController c = watched.get(i);
+            pkgs[i] = c.getPackageName();
+            PlaybackState st = c.getPlaybackState();
+            playing[i] = st != null && (st.getState() == PlaybackState.STATE_PLAYING || st.getState() == PlaybackState.STATE_BUFFERING);
+        }
+        String pkg = BubbleIcon.choose(pkgs, playing);
+        android.graphics.drawable.Drawable icon = null;
+        if (pkg != null) { try { icon = getPackageManager().getApplicationIcon(pkg); } catch (Exception ignored) { } }
+        bubble.setApp(icon);
+    }
+
     private void openPicker() {
         if (picker != null) return;
         Settings s = Settings.of(this);
         Rect b = screen();
-        int[] r = BubbleGeometry.picker(b.width(), b.height(), effectiveShare(), s.swapSides());
+        int[] real = PanelBounds.get();   // the panel's real window: the unit decides which side it gets
+        int[] r = BubbleGeometry.toOverlay(real != null ? BubbleGeometry.pickerAt(real)
+                : BubbleGeometry.picker(b.width(), b.height(), effectiveShare(), s.swapSides()), OverlayOrigin.of(this));
         boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         picker = new PlayerPicker(this, null, PanelStyle.isDark(s.theme(), night), this::closePicker);
         WindowManager.LayoutParams p = new WindowManager.LayoutParams(r[2], r[3], WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -137,6 +182,9 @@ public class BubbleService extends Service {
 
     @Override
     public void onDestroy() {
+        if (msm != null) { try { msm.removeOnActiveSessionsChangedListener(sessionsListener); } catch (Exception ignored) { } }
+        for (MediaController c : watched) c.unregisterCallback(sessionCallback);
+        watched.clear();
         closePicker();
         if (bubble != null) { try { wm.removeView(bubble); } catch (Exception ignored) { } bubble = null; }
         super.onDestroy();

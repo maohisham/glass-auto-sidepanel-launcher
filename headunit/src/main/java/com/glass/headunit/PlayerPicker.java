@@ -187,19 +187,14 @@ final class PlayerPicker extends LinearLayout {
     }
 
     /**
-     * Opens the selected player itself. Started from the panel's own window, the app takes the panel's side of the
-     * split (the map stays where it is), and the Back key or the floating button brings the panel back.
+     * Opens the selected player itself on the panel's side of the split (the map stays where it is); the Back key or
+     * the floating button brings the panel back. From the floating bubble the panel does the opening (OpenInPanel).
      */
     private void openApp() {
         if (selectedPkg == null) return;
-        Intent i = ctx.getPackageManager().getLaunchIntentForPackage(selectedPkg);
-        if (i == null) { Toast.makeText(ctx, selectedLabel + " cannot be opened here.", Toast.LENGTH_SHORT).show(); return; }
         int[] at = new int[2];
         getLocationOnScreen(at);
-        int[] bounds = {at[0], at[1], getWidth(), getHeight()};
-        if (!Intents.safeStart(ctx, i, selectedLabel)) return;
-        if (android.provider.Settings.canDrawOverlays(ctx)) ReturnButton.show(ctx, bounds);
-        else Toast.makeText(ctx, "Press Back to return to the panel.", Toast.LENGTH_LONG).show();
+        OpenInPanel.request(ctx, selectedPkg, selectedLabel, new int[]{at[0], at[1], getWidth(), getHeight()});
         onClose.run();
     }
 

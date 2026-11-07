@@ -61,6 +61,16 @@ public class PanelActivity extends Activity {
         }
     };
 
+    /** The bubble's picker asks the panel to open a player app, so the app lands on the panel's own side. */
+    private final OpenInPanel.Opener opener = (pkg, label, bounds) -> PlayerLauncher.open(this, pkg, label, bounds);
+
+    /** Tells the floating bubble where this window really is on screen. */
+    private void publishBounds() {
+        int[] at = new int[2];
+        panel.getLocationOnScreen(at);
+        if (panel.getWidth() > 0) PanelBounds.set(at[0], at[1], panel.getWidth(), panel.getHeight());
+    }
+
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -68,6 +78,7 @@ public class PanelActivity extends Activity {
         PrayerSky.demoName = demo ? getIntent().getStringExtra("sky") : null;   // --es sky Zohor shows that prayer's look
         freshStart = b == null;
         panel = new PanelView(this);
+        panel.addOnLayoutChangeListener((v, l, t, r, bt, ol, ot, or, ob) -> publishBounds());
         applyStyle(getResources().getConfiguration());
         panel.setOnSettings(() -> startActivity(new android.content.Intent(this, SettingsActivity.class)));
         panel.setOnPlayer(this::showPicker);
@@ -188,6 +199,7 @@ public class PanelActivity extends Activity {
     @Override
     protected void onStart() {
         super.onStart();
+        OpenInPanel.register(opener);
         ReturnButton.hide();   // the panel is back in front: the floating way back is no longer needed
         applyStyle(getResources().getConfiguration());
         handler.post(tick);
@@ -250,6 +262,7 @@ public class PanelActivity extends Activity {
     @Override
     protected void onStop() {
         super.onStop();
+        OpenInPanel.unregister(opener);
         handler.removeCallbacks(tick);
         handler.removeCallbacks(demoStep);
         hidePicker();

@@ -40,6 +40,7 @@ final class ReturnButton {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, PixelFormat.TRANSLUCENT);
         p.gravity = Gravity.TOP | Gravity.START;
+        xy = BubbleGeometry.toOverlayPoint(xy, OverlayOrigin.of(app));
         p.x = xy[0];
         p.y = xy[1];
         try { wm.addView(view, p); Spike.log("return button: shown"); }
