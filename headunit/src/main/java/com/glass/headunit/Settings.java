@@ -70,6 +70,14 @@ final class Settings {
     String mapApp() { return sp.getString("mapApp", ""); }
     void setMapApp(String pkg) { sp.edit().putString("mapApp", pkg == null ? "" : pkg).apply(); }
 
+    /** Show the clock and date at the left of the top card (on by default). */
+    boolean showClock() { return sp.getBoolean("showClock", true); }
+    void setShowClock(boolean v) { sp.edit().putBoolean("showClock", v).apply(); }
+
+    /** 0 follow the unit's own clock setting, 1 twelve-hour, 2 twenty-four-hour. */
+    int clockMode() { return sp.getInt("clockMode", ClockText.FOLLOW); }
+    void setClockMode(int v) { sp.edit().putInt("clockMode", Math.max(0, Math.min(2, v))).apply(); }
+
     /** Open the map app beside the panel when the panel starts (on by default); off launches only the panel. */
     boolean autoOpenMaps() { return sp.getBoolean("autoOpenMaps", true); }
     void setAutoOpenMaps(boolean v) { sp.edit().putBoolean("autoOpenMaps", v).apply(); }

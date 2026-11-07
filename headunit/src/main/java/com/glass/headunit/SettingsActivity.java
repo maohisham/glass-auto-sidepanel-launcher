@@ -55,6 +55,10 @@ public class SettingsActivity extends Activity {
         mapChoiceBox.setOrientation(LinearLayout.VERTICAL);
         root.addView(mapChoiceBox);
 
+        root.addView(heading("Clock"));
+        root.addView(toggle("Show the clock and date", s.showClock(), s::setShowClock));
+        root.addView(choice(new String[]{"Follow the unit", "12-hour", "24-hour"}, s.clockMode(), s::setClockMode));
+
         root.addView(heading("Text size"));
         root.addView(choice(new String[]{"Small", "Medium", "Large"}, s.textSize(), s::setTextSize));
         root.addView(heading("Lyrics text size"));

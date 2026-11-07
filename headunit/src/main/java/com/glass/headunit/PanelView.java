@@ -48,6 +48,12 @@ final class PanelView extends LinearLayout {
     private NowPlaying now = NowPlaying.idle();
     private long nowReceivedAt;
 
+    private LinearLayout clockBlock, rightCol, weatherBox, prayerBox;
+    private View stripDivider;
+    private TextView clockText, ampmText, dateText;
+    private boolean clockOn = true;
+    private int clockMode = ClockText.FOLLOW;
+    private String clockShown = "", dateShown = "";
     private LinearLayout headerBlock, topRow, stripBox, banners, nowBox, songRow, mediaRow, progRow, barBox, lyricList, idleBox;
     private CoverView coverView, radioCover;
     private LinearLayout radioBox, radioArea;
@@ -249,13 +255,13 @@ final class PanelView extends LinearLayout {
 
         // prayer strip: tap for the full table
         stripBox = new LinearLayout(getContext());
-        stripBox.setOrientation(mode == PanelMode.COMPACT ? VERTICAL : HORIZONTAL);
+        stripBox.setOrientation(clockOn || mode != PanelMode.COMPACT ? HORIZONTAL : VERTICAL);
         stripBox.setPadding(dp(4), dp(4), dp(4), dp(4));
         stripBox.setBackground(Glass.button(getContext(), dark, false, false, 14));
         weatherText = text(16, false, fg);
         prayerText = text(16, true, accent);
         // two tappable halves: the weather opens the forecast, the prayer opens the table
-        LinearLayout weatherBox = tapArea("Open the weather", weatherText, () -> { if (onWeather != null) onWeather.run(); });
+        weatherBox = tapArea("Open the weather", weatherText, () -> { if (onWeather != null) onWeather.run(); });
         // the mosque icon sits at the left of the prayer text
         LinearLayout prayerLine = new LinearLayout(getContext());
         prayerLine.setOrientation(HORIZONTAL);
@@ -267,8 +273,47 @@ final class PanelView extends LinearLayout {
         LayoutParams pl = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
         pl.leftMargin = dp(8);
         prayerLine.addView(prayerText, pl);
-        LinearLayout prayerBox = tapArea("Open the prayer times", prayerLine, () -> { if (onPrayer != null) onPrayer.run(); });
-        if (mode == PanelMode.COMPACT) {
+        prayerBox = tapArea("Open the prayer times", prayerLine, () -> { if (onPrayer != null) onPrayer.run(); });
+        clockText = null;
+        ampmText = null;
+        dateText = null;
+        clockShown = "";
+        dateShown = "";
+        if (clockOn) {
+            // clock and date at the left, weather over prayer at the right; the weather and prayer halves stay tappable
+            prayerLine.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
+            clockBlock = new LinearLayout(getContext());
+            clockBlock.setOrientation(VERTICAL);
+            clockBlock.setPadding(dp(10), dp(4), dp(6), dp(4));
+            clockText = text(46, true, fg);
+            clockText.setSingleLine();
+            clockText.setIncludeFontPadding(false);
+            ampmText = text(17, true, fg);
+            ampmText.setSingleLine();
+            LinearLayout clockRow = new LinearLayout(getContext());     // digits and AM/PM side by side on one baseline
+            clockRow.setOrientation(HORIZONTAL);
+            clockRow.setContentDescription("Time");
+            clockRow.addView(clockText);
+            LayoutParams ap = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+            ap.leftMargin = dp(4);
+            clockRow.addView(ampmText, ap);
+            dateText = text(13, false, dim);
+            dateText.setSingleLine();
+            clockBlock.addView(clockRow);
+            clockBlock.addView(dateText);
+            stripDivider = new View(getContext());
+            stripDivider.setBackgroundColor((PanelStyle.dim(dark) & 0x00FFFFFF) | 0x44000000);
+            rightCol = new LinearLayout(getContext());
+            rightCol.setOrientation(VERTICAL);
+            rightCol.addView(weatherBox, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+            rightCol.addView(prayerBox, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+            stripBox.addView(clockBlock, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+            LayoutParams dl = new LayoutParams(dp(1), LayoutParams.MATCH_PARENT);
+            dl.topMargin = dp(6);
+            dl.bottomMargin = dp(6);
+            stripBox.addView(stripDivider, dl);
+            stripBox.addView(rightCol, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        } else if (mode == PanelMode.COMPACT) {
             stripBox.addView(prayerBox, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
             stripBox.addView(weatherBox, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
         } else {
@@ -448,6 +493,7 @@ final class PanelView extends LinearLayout {
     // ---- binding ----
 
     private void bindTop() {
+        bindClock();
         weatherText.setText(weather == null ? "" : weather.emoji + " " + Math.round(weather.tempC) + "°C"
                 + (weather.city.isEmpty() ? "" : "  " + weather.city));
         if (prayer == null) prayerText.setText("");
@@ -460,7 +506,49 @@ final class PanelView extends LinearLayout {
             sp.setSpan(new android.text.style.ForegroundColorSpan(PanelStyle.fg(dark)), cut, line.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             prayerText.setText(sp);
         }
-        stripBox.setVisibility(prayer == null && weather == null ? GONE : VISIBLE);
+        updateStrip();
+    }
+
+    /** The clock and date: redrawn only when the minute (or the date) changes. */
+    private void bindClock() {
+        if (clockText == null) return;
+        long now = System.currentTimeMillis();
+        boolean h24 = ClockText.use24(clockMode, android.text.format.DateFormat.is24HourFormat(getContext()));
+        java.util.TimeZone tz = java.util.TimeZone.getDefault();
+        String[] t = ClockText.time(now, h24, tz);
+        String key = t[0] + "|" + t[1];
+        if (!key.equals(clockShown)) {
+            clockShown = key;
+            clockText.setText(t[0]);
+            ampmText.setText(t[1]);
+            ampmText.setVisibility(t[1].isEmpty() ? GONE : VISIBLE);
+        }
+        String date = ClockText.date(now, java.util.Locale.getDefault(), tz);
+        if (!date.equals(dateShown)) { dateShown = date; dateText.setText(date); }
+    }
+
+    /** The top card: with the clock on it is always there (alone while nothing plays); without it, as before. */
+    private void updateStrip() {
+        boolean idle = now.pkg == null;
+        boolean haveRight = prayer != null || weather != null;
+        boolean showRight = !idle && haveRight;
+        if (clockOn) {
+            stripBox.setVisibility(VISIBLE);
+            rightCol.setVisibility(showRight ? VISIBLE : GONE);
+            stripDivider.setVisibility(showRight ? VISIBLE : GONE);
+            weatherBox.setVisibility(weather == null ? GONE : VISIBLE);
+            prayerBox.setVisibility(prayer == null ? GONE : VISIBLE);
+        } else {
+            stripBox.setVisibility(showRight ? VISIBLE : GONE);
+        }
+    }
+
+    /** Shows or hides the clock and picks 12 or 24-hour style; rebuilds the panel only when something changed. */
+    void setClock(boolean on, int mode) {
+        if (on == clockOn && mode == clockMode) return;
+        clockOn = on;
+        clockMode = mode;
+        build();
     }
 
     private void bindBanners() {
@@ -591,7 +679,7 @@ final class PanelView extends LinearLayout {
     /** Decides what fills the space under the controls: lyrics, the song large, or the prayer table when nothing plays. */
     private void bindLyricsArea() {
         boolean idle = now.pkg == null;
-        stripBox.setVisibility(idle || (prayer == null && weather == null) ? GONE : VISIBLE);
+        updateStrip();
         boolean radio = !idle && ControlsPolicy.isRadio(now.pkg);
         radioArea.setVisibility(radio ? VISIBLE : GONE);
         if (radio) {

@@ -99,6 +99,7 @@ public class PanelActivity extends Activity {
         boolean night = (c.uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         boolean dark = PanelStyle.isDark(s.theme(), night);
         panel.setStyle(PanelMode.forWidthDp(c.screenWidthDp), s.textSize(), s.lyricsSize(), dark);
+        panel.setClock(s.showClock(), s.clockMode());
         getWindow().getDecorView().setBackgroundColor(PanelStyle.bg(dark));
     }
 
