@@ -60,6 +60,10 @@ final class Icons {
                 c.drawCircle(12f, 9.8f, 2.4f, fill);
                 break;
             }
+            case APPS: {   // a 3 x 3 grid of dots
+                for (int r = 0; r < 3; r++) for (int col = 0; col < 3; col++) c.drawCircle(6.5f + col * 5.5f, 6.5f + r * 5.5f, 1.9f, fill);
+                break;
+            }
             case BACK: {
                 Path p = new Path();
                 p.moveTo(15, 5); p.lineTo(8, 12); p.lineTo(15, 19);

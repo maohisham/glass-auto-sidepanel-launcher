@@ -22,6 +22,7 @@ public class PanelActivity extends Activity {
     private PanelView panel;
     private android.widget.FrameLayout root;
     private PlayerPicker picker;
+    private AppsGrid appsGrid;
     private PrayerScreen prayerScreen;
     private DriveScreen driveScreen;
     private WeatherScreen weatherScreen;
@@ -71,9 +72,19 @@ public class PanelActivity extends Activity {
         if (panel.getWidth() > 0) PanelBounds.set(at[0], at[1], panel.getWidth(), panel.getHeight());
     }
 
+    /** The panel that is open right now, so a Home press can reuse it instead of stacking a second one. */
+    private static PanelActivity live;
+
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        if (HomeLaunch.isDuplicate(getIntent().hasCategory(android.content.Intent.CATEGORY_HOME), live != null && !live.isFinishing())) {
+            Spike.log("home: the panel is already open, bringing it forward");
+            finish();
+            overridePendingTransition(0, 0);
+            return;
+        }
+        live = this;
         demo = getIntent().getBooleanExtra("demo", false);
         PrayerSky.demoName = demo ? getIntent().getStringExtra("sky") : null;   // --es sky Zohor shows that prayer's look
         freshStart = b == null;
@@ -100,6 +111,7 @@ public class PanelActivity extends Activity {
         boolean dark = PanelStyle.isDark(s.theme(), night);
         panel.setStyle(PanelMode.forWidthDp(c.screenWidthDp), s.textSize(), s.lyricsSize(), dark);
         panel.setClock(s.showClock(), s.clockMode());
+        panel.setOnApps(s.homeLauncher() ? this::showApps : null);
         getWindow().getDecorView().setBackgroundColor(PanelStyle.bg(dark));
     }
 
@@ -109,6 +121,20 @@ public class PanelActivity extends Activity {
         boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         picker = new PlayerPicker(this, follower, PanelStyle.isDark(s.theme(), night), this::hidePicker);
         root.addView(picker, new android.widget.FrameLayout.LayoutParams(-1, -1));
+    }
+
+    private void showApps() {
+        if (appsGrid != null) return;
+        Settings s = Settings.of(this);
+        boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        appsGrid = new AppsGrid(this, PanelStyle.isDark(s.theme(), night), this::hideApps);
+        root.addView(appsGrid, new android.widget.FrameLayout.LayoutParams(-1, -1));
+    }
+
+    private void hideApps() {
+        if (appsGrid == null) return;
+        root.removeView(appsGrid);
+        appsGrid = null;
     }
 
     /** Once per start: if the setting is on and nothing is playing after a few seconds, resume the last player. */
@@ -188,6 +214,7 @@ public class PanelActivity extends Activity {
         if (driveScreen != null) { hideDrive(); return; }
         if (prayerScreen != null) { hidePrayer(); return; }
         if (picker != null) { if (!picker.handleBack()) hidePicker(); return; }
+        if (appsGrid != null) { hideApps(); return; }
         super.onBackPressed();
     }
 
@@ -267,12 +294,19 @@ public class PanelActivity extends Activity {
         handler.removeCallbacks(tick);
         handler.removeCallbacks(demoStep);
         hidePicker();
+        hideApps();
         hidePrayer();
         hideDrive();
         hideWeather();
         if (speed != null) { speed.stop(); speed = null; }
         if (follower != null) { follower.stop(); follower = null; }
         if (controller != null) { controller.stop(); controller = null; }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (live == this) live = null;
+        super.onDestroy();
     }
 
     // ---- demo data ----

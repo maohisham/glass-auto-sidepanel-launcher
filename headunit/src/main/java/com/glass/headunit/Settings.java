@@ -78,6 +78,14 @@ final class Settings {
     int clockMode() { return sp.getInt("clockMode", ClockText.FOLLOW); }
     void setClockMode(int v) { sp.edit().putInt("clockMode", Math.max(0, Math.min(2, v))).apply(); }
 
+    /** Home launcher option: the Home entry is switched on and the Apps button shows in the panel. */
+    boolean homeLauncher() { return sp.getBoolean("homeLauncher", false); }
+    void setHomeLauncher(boolean v) { sp.edit().putBoolean("homeLauncher", v).apply(); }
+
+    /** Show the floating apps bubble. Off by default. */
+    boolean appsBubble() { return sp.getBoolean("appsBubble", false); }
+    void setAppsBubble(boolean v) { sp.edit().putBoolean("appsBubble", v).apply(); }
+
     /** Open the map app beside the panel when the panel starts (on by default); off launches only the panel. */
     boolean autoOpenMaps() { return sp.getBoolean("autoOpenMaps", true); }
     void setAutoOpenMaps(boolean v) { sp.edit().putBoolean("autoOpenMaps", v).apply(); }

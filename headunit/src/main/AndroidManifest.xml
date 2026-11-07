@@ -23,6 +23,11 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
         <package android:name="com.google.android.apps.maps" />
+        <!-- So the settings screen can tell whether this app is the unit's home app. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
     </queries>
 
     <application
@@ -45,6 +50,20 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- The Home entry: off until the user turns on "Home launcher" in Settings, so this app cannot be picked as home by accident. -->
+        <activity-alias
+            android:name=".HomeAlias"
+            android:targetActivity=".PanelActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
 
         <activity
             android:name=".SettingsActivity"

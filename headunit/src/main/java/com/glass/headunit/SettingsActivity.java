@@ -21,7 +21,8 @@ import android.widget.TextView;
 public class SettingsActivity extends Activity {
 
     private Settings s;
-    private TextView ratioText, zoneRow, checklist;
+    private TextView ratioText, zoneRow, checklist, homeStatus;
+    private Switch homeToggle;
     private LinearLayout checklistBox, mapChoiceBox;
 
     @Override
@@ -54,6 +55,16 @@ public class SettingsActivity extends Activity {
         mapChoiceBox = new LinearLayout(this);
         mapChoiceBox.setOrientation(LinearLayout.VERTICAL);
         root.addView(mapChoiceBox);
+
+        root.addView(heading("Home launcher"));
+        homeToggle = toggle("Use Glass Panel as a home launcher (adds an Apps button)", s.homeLauncher(), on -> {
+            HomeLauncher.setEnabled(this, on);
+            showHome();
+        });
+        root.addView(homeToggle);
+        homeStatus = new TextView(this);
+        root.addView(homeStatus);
+        root.addView(button("Set as the default home app", () -> { HomeLauncher.requestDefault(this); showHome(); }));
 
         root.addView(heading("Clock"));
         root.addView(toggle("Show the clock and date", s.showClock(), s::setShowClock));
@@ -125,10 +136,25 @@ public class SettingsActivity extends Activity {
     protected void onResume() {
         super.onResume();
         showRatio();
+        showHome();
         buildMapChoice();
         zoneRow.setText(s.manualZone().isEmpty() ? "Automatic: follows the GPS" : "Manual: " + s.manualZone());
         buildChecklist();
         BubbleService.apply(this); // picks up a permission granted while Settings was away
+    }
+
+    /** Keeps the home launcher toggle and its status line in step with what Android reports. */
+    private void showHome() {
+        boolean on = HomeLauncher.isEnabled(this);
+        if (on != s.homeLauncher()) s.setHomeLauncher(on);
+        if (homeToggle.isChecked() != on) homeToggle.setChecked(on);
+        homeStatus.setText(HomeLauncher.isDefaultHome(this) ? "✔ Glass Panel is the home app now." : "Not the home app yet. The button below opens Android's own chooser.");
+    }
+
+    @Override
+    protected void onActivityResult(int code, int result, android.content.Intent data) {
+        super.onActivityResult(code, result, data);
+        if (code == HomeLauncher.REQUEST_CODE) showHome();
     }
 
     /** When the screen is already split, moves the divider to the new ratio at once (needs the window helper). */

@@ -35,7 +35,7 @@ final class PanelView extends LinearLayout {
     private int lyricsSize = -1;   // -1 follows textSize
     private boolean dark = true;
     private Controls controls;
-    private Runnable onPlayer, onSettings, onPrayer, onDrive, onWeather;
+    private Runnable onPlayer, onSettings, onPrayer, onDrive, onWeather, onApps;
     private boolean scoreEnabled = true;
     private EcoScore.Stats score;
     private TextView scoreChip, speedChip;
@@ -80,6 +80,13 @@ final class PanelView extends LinearLayout {
 
     void setControls(Controls c) { controls = c; }
     void setOnPlayer(Runnable r) { onPlayer = r; build(); }
+
+    /** The Apps button in the top row: shown only while there is something to run (the home launcher option is on). */
+    void setOnApps(Runnable r) {
+        if ((r == null) == (onApps == null)) { onApps = r; return; }
+        onApps = r;
+        build();
+    }
     void setOnSettings(Runnable r) { onSettings = r; build(); }
     void setOnPrayer(Runnable r) { onPrayer = r; }
     void setOnDrive(Runnable r) { onDrive = r; }
@@ -229,6 +236,7 @@ final class PanelView extends LinearLayout {
         boolean firstIcon = true;
         if (onPlayer != null) { topRow.addView(icon(Icon.PLAYER, "Choose a player", 44, IconView.Style.NORMAL, () -> onPlayer.run()), gapped(0)); firstIcon = false; }
         if (onSettings != null) { topRow.addView(icon(Icon.SETTINGS, "Settings", 44, IconView.Style.NORMAL, () -> onSettings.run()), gapped(firstIcon ? 0 : 12)); firstIcon = false; }
+        if (onApps != null) { topRow.addView(icon(Icon.APPS, "Apps", 44, IconView.Style.NORMAL, () -> onApps.run()), gapped(firstIcon ? 0 : 12)); firstIcon = false; }
         if (mapsInstalled()) { topRow.addView(icon(Icon.MAPS, "Open the map app", 44, IconView.Style.NORMAL, this::openMaps), gapped(firstIcon ? 0 : 12)); }
         topRow.addView(new View(getContext()), new LayoutParams(0, 1, 1f));
         scoreChip = null;
