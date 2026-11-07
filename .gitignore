@@ -1,0 +1,43 @@
+# Gradle and Android Studio build output
+.gradle/
+build/
+*/build/
+local.properties
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+.kotlin/
+*.hprof
+
+# Signing keys, certificates, passwords and other secrets: never commit these
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+*.der
+keystore.properties
+headunit/keystore/
+secrets.properties
+.env
+.env.*
+google-services.json
+*.secret
+
+# Built apps: share them as downloads, not in git
+*.apk
+*.aab
+*.apks
+
+# Machine, editor and tool files
+.DS_Store
+.vscode/
+*.swp
+*.bak
+*.tmp
+.claude/
+.superpowers/
+*.log
