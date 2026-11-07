@@ -55,9 +55,15 @@ final class ReturnButton {
     }
 
     private static void goBack() {
+        Spike.log("return button: tapped");
         Context app = view == null ? null : view.getContext();
         hide();
         if (app == null) return;
+        // bring the panel's own task back as it is (a fresh start would open the map app again)
+        try {
+            java.util.List<android.app.ActivityManager.AppTask> tasks = app.getSystemService(android.app.ActivityManager.class).getAppTasks();
+            if (!tasks.isEmpty()) { tasks.get(0).moveToFront(); return; }
+        } catch (Exception e) { Spike.log("return button: could not move the panel to the front (" + e.getClass().getSimpleName() + ")"); }
         Intent i = app.getPackageManager().getLaunchIntentForPackage(app.getPackageName());
         if (i == null) return;
         try { app.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); }
