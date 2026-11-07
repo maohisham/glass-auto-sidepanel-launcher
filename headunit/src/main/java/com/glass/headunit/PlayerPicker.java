@@ -11,7 +11,9 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewOutlineProvider;
+import android.content.Intent;
 import android.widget.Button;
+import android.widget.Toast;
 import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
@@ -37,7 +39,7 @@ final class PlayerPicker extends LinearLayout {
     private final Runnable onClose;
     private final boolean dark;
     private final LinearLayout cards, moreCards, tabs, content;
-    private final Button moreToggle;
+    private final Button moreToggle, openBtn;
     private final List<String> stack = new ArrayList<>();   // parent ids of the library pages, null = the player's root
     private String selectedPkg, selectedLabel = "";
     private Tab tab = Tab.SEARCH;
@@ -90,6 +92,12 @@ final class PlayerPicker extends LinearLayout {
         ml.topMargin = Glass.dp(ctx, 8);
         addView(moreBox, ml);
 
+        // the real app, for choosing a playlist or album in its own screens (works for any player, even ones that keep their library closed)
+        openBtn = Glass.textButton(ctx, "", dark, this::openApp);
+        LayoutParams ol = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        ol.topMargin = Glass.dp(ctx, 10);
+        addView(openBtn, ol);
+
         tabs = new LinearLayout(ctx);
         tabs.setOrientation(HORIZONTAL);
         LayoutParams tl = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
@@ -138,6 +146,8 @@ final class PlayerPicker extends LinearLayout {
         moreCards.setVisibility(moreOpen ? VISIBLE : GONE);
         ((View) moreCards.getParent()).setVisibility(moreOpen ? VISIBLE : GONE);
         moreToggle.setText(moreOpen ? "Fewer apps" : "More apps (" + split.more.size() + ")");
+        openBtn.setText(selectedPkg == null ? "" : "Open " + selectedLabel + " to choose music");
+        openBtn.setVisibility(selectedPkg == null ? GONE : VISIBLE);
         ((View) moreToggle.getParent()).setVisibility(split.more.isEmpty() ? GONE : VISIBLE);
     }
 
@@ -174,6 +184,23 @@ final class PlayerPicker extends LinearLayout {
         if (changed || follower == null || follower.controller() == null || !pkg.equals(follower.controller().getPackageName())) switcher.switchTo(pkg);
         refreshPlayers();
         showTab(tab);
+    }
+
+    /**
+     * Opens the selected player itself. Started from the panel's own window, the app takes the panel's side of the
+     * split (the map stays where it is), and the Back key or the floating button brings the panel back.
+     */
+    private void openApp() {
+        if (selectedPkg == null) return;
+        Intent i = ctx.getPackageManager().getLaunchIntentForPackage(selectedPkg);
+        if (i == null) { Toast.makeText(ctx, selectedLabel + " cannot be opened here.", Toast.LENGTH_SHORT).show(); return; }
+        int[] at = new int[2];
+        getLocationOnScreen(at);
+        int[] bounds = {at[0], at[1], getWidth(), getHeight()};
+        if (!Intents.safeStart(ctx, i, selectedLabel)) return;
+        if (android.provider.Settings.canDrawOverlays(ctx)) ReturnButton.show(ctx, bounds);
+        else Toast.makeText(ctx, "Press Back to return to the panel.", Toast.LENGTH_LONG).show();
+        onClose.run();
     }
 
     // ---- tabs ----

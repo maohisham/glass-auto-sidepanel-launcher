@@ -187,6 +187,7 @@ public class PanelActivity extends Activity {
     @Override
     protected void onStart() {
         super.onStart();
+        ReturnButton.hide();   // the panel is back in front: the floating way back is no longer needed
         applyStyle(getResources().getConfiguration());
         handler.post(tick);
         if (!demo) BubbleService.apply(this);
