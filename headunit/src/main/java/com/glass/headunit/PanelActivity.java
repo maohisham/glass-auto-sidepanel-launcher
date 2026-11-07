@@ -65,6 +65,7 @@ public class PanelActivity extends Activity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         demo = getIntent().getBooleanExtra("demo", false);
+        PrayerSky.demoName = demo ? getIntent().getStringExtra("sky") : null;   // --es sky Zohor shows that prayer's look
         freshStart = b == null;
         panel = new PanelView(this);
         applyStyle(getResources().getConfiguration());

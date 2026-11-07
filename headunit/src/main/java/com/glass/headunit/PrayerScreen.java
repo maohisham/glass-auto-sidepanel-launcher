@@ -13,12 +13,15 @@ final class PrayerScreen extends LinearLayout {
 
     private final PrayerTableView table;
     private final Prayer.Data data;
+    private final boolean dark;
+    private String skyShown = "";
 
     PrayerScreen(Context ctx, boolean dark, int textSize, PanelMode mode, Prayer.Data data, Weather.Data weather, Runnable onClose) {
         super(ctx);
         this.data = data;
         setOrientation(VERTICAL);
-        setBackground(new GlassBackground(dark));
+        this.dark = dark;
+        applySky();
         setClickable(true); // swallow touches so the panel below is not pressed through it
         int pad = Glass.dp(ctx, mode == PanelMode.COMPACT ? 14 : 20);
         setPadding(pad, pad, pad, pad);
@@ -66,5 +69,17 @@ final class PrayerScreen extends LinearLayout {
     }
 
     /** Once a second while the screen is open. */
-    void tick() { table.bind(data, System.currentTimeMillis()); }
+    void tick() {
+        table.bind(data, System.currentTimeMillis());
+        applySky();
+    }
+
+    /** The backdrop follows the current prayer; it is only swapped when the prayer (or sunrise) changes. */
+    private void applySky() {
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        String name = PrayerSky.skyName(data.currentName, data.syuruk, c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE));
+        if (name.equals(skyShown)) return;
+        skyShown = name;
+        setBackground(new GlassBackground(dark, PrayerSky.colors(name, dark)));
+    }
 }

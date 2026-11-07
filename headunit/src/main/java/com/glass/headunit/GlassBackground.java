@@ -13,17 +13,20 @@ import android.graphics.drawable.Drawable;
 /** The panel's backdrop: a soft gradient with two gentle colour glows, so the glass buttons have something to show against. Drawn once per size. */
 final class GlassBackground extends Drawable {
 
-    private final boolean dark;
+    private final int[] colors;     // top, bottom, glow A, glow B
     private final Paint base = new Paint(), glowA = new Paint(), glowB = new Paint();
 
-    GlassBackground(boolean dark) { this.dark = dark; }
+    GlassBackground(boolean dark) { this(dark, null); }
+
+    /** sky is the four colours of a prayer's look (PrayerSky.colors), or null for the usual night blue. */
+    GlassBackground(boolean dark, int[] sky) { this.colors = sky != null ? sky : PrayerSky.colors("Isyak", dark); }
 
     @Override
     protected void onBoundsChange(Rect b) {
         float w = b.width(), h = b.height();
-        base.setShader(new LinearGradient(0, 0, 0, h, dark ? 0xFF0A1226 : 0xFFF4F7FC, dark ? 0xFF15264D : 0xFFD9E4F6, Shader.TileMode.CLAMP));
-        glowA.setShader(new RadialGradient(w * 0.88f, h * -0.04f, Math.max(w, 1f) * 0.9f, dark ? 0x4219E3A5 : 0x4719E3A5, 0x0019E3A5, Shader.TileMode.CLAMP));
-        glowB.setShader(new RadialGradient(w * -0.06f, h * 1.04f, Math.max(w, 1f) * 0.8f, dark ? 0x475A82FF : 0x3D5A82FF, 0x005A82FF, Shader.TileMode.CLAMP));
+        base.setShader(new LinearGradient(0, 0, 0, h, colors[0], colors[1], Shader.TileMode.CLAMP));
+        glowA.setShader(new RadialGradient(w * 0.88f, h * -0.04f, Math.max(w, 1f) * 0.9f, colors[2], colors[2] & 0x00FFFFFF, Shader.TileMode.CLAMP));
+        glowB.setShader(new RadialGradient(w * -0.06f, h * 1.04f, Math.max(w, 1f) * 0.8f, colors[3], colors[3] & 0x00FFFFFF, Shader.TileMode.CLAMP));
     }
 
     @Override

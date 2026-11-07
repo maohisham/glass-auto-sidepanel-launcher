@@ -51,6 +51,7 @@ final class PanelView extends LinearLayout {
     private LinearLayout headerBlock, topRow, stripBox, banners, nowBox, songRow, mediaRow, progRow, barBox, lyricList, idleBox;
     private CoverView coverView, radioCover;
     private LinearLayout radioBox, radioArea;
+    private String skyShown = "";
     private TextView radioTitle, radioInfo, radioPlayer;
     private MaxHeightScrollView headerScroll;
     private TextView weatherText, prayerText, title, artist, bigText, header, elapsedText, durationText, idleNote;
@@ -201,6 +202,7 @@ final class PanelView extends LinearLayout {
         setOrientation(VERTICAL);
         int pad = dp(mode == PanelMode.COMPACT ? 12 : 20);
         setPadding(pad, pad, pad, pad);
+        skyShown = "";
         setBackground(new GlassBackground(dark));
         int fg = PanelStyle.fg(dark), dim = PanelStyle.dim(dark), accent = PanelStyle.accent(dark);
 
@@ -604,6 +606,7 @@ final class PanelView extends LinearLayout {
         bigText.setVisibility(!idle && !haveLyrics ? VISIBLE : GONE);
         idleScroll().setVisibility(idle ? VISIBLE : GONE);
         nowBox.setVisibility(VISIBLE);
+        applySky(idle);
         if (idle) {
             title.setVisibility(VISIBLE);
             bindIdle();
@@ -622,6 +625,18 @@ final class PanelView extends LinearLayout {
         if (now.lyrics != shownLyrics) rebuildLines();
         int idx = now.lyrics.lastNonEmptyAtOrBefore(now.line);
         light(idx, idx < 0);
+    }
+
+    /** Nothing playing: the backdrop takes the look of the current prayer. Otherwise the usual night blue. Swapped only when it changes. */
+    private void applySky(boolean idle) {
+        String name = "";
+        if (idle && prayer != null) {
+            java.util.Calendar c = java.util.Calendar.getInstance();
+            name = PrayerSky.skyName(prayer.currentName, prayer.syuruk, c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE));
+        }
+        if (name.equals(skyShown)) return;
+        skyShown = name;
+        setBackground(new GlassBackground(dark, name.isEmpty() ? null : PrayerSky.colors(name, dark)));
     }
 
     private void bindIdle() {
