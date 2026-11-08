@@ -127,6 +127,7 @@ public class SettingsActivity extends Activity {
         checklistBox.setOrientation(LinearLayout.VERTICAL);
         root.addView(checklistBox);
 
+        root.addView(button("Setup wizard (permissions and first settings)", () -> startActivity(new Intent(this, WizardActivity.class))));
         root.addView(button("Split-screen test (for setting up a unit)", () -> startActivity(new Intent(this, SplitProbeActivity.class))));
         root.addView(button("Open the log", () -> startActivity(new Intent(this, LogActivity.class))));
 

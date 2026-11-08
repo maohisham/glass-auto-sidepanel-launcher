@@ -275,8 +275,14 @@ public class PanelActivity extends Activity {
         // open the map app beside the panel: when the window helper asked for it at boot, or on every fresh start of the panel
         boolean helperAsked = getIntent().getBooleanExtra(EXTRA_BESIDE, false);
         getIntent().removeExtra(EXTRA_BESIDE);
-        boolean auto = MapsAutoOpen.shouldOpen(Settings.of(this).autoOpenMaps(), panel.mapsInstalled(), freshStart, demo);
+        boolean wizard = WizardPlan.shouldAutoShow(Settings.of(this).wizardDone(), freshStart, demo);
+        boolean auto = !wizard && MapsAutoOpen.shouldOpen(Settings.of(this).autoOpenMaps(), panel.mapsInstalled(), freshStart, demo);
         freshStart = false;
+        if (wizard) {   // first run: set things up before anything opens beside the panel
+            Spike.log("wizard: first start, opening the setup wizard");
+            startActivity(new android.content.Intent(this, WizardActivity.class));
+            return;
+        }
         if (helperAsked || auto) {
             Spike.log("opening the map app beside the panel" + (helperAsked ? " (window helper)" : " (panel start)"));
             handler.postDelayed(() -> panel.openMaps(false), 800);

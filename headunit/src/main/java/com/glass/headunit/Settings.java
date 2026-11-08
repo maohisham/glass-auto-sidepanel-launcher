@@ -86,6 +86,10 @@ final class Settings {
     boolean appsBubble() { return sp.getBoolean("appsBubble", false); }
     void setAppsBubble(boolean v) { sp.edit().putBoolean("appsBubble", v).apply(); }
 
+    /** The setup wizard was finished (or the user closed it with Finish); it opens by itself only until then. */
+    boolean wizardDone() { return sp.getBoolean("wizardDone", false); }
+    void setWizardDone(boolean v) { sp.edit().putBoolean("wizardDone", v).apply(); }
+
     /** Open the map app beside the panel when the panel starts (on by default); off launches only the panel. */
     boolean autoOpenMaps() { return sp.getBoolean("autoOpenMaps", true); }
     void setAutoOpenMaps(boolean v) { sp.edit().putBoolean("autoOpenMaps", v).apply(); }
