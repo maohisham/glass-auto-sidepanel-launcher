@@ -2,65 +2,48 @@ package com.glass.headunit;
 
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.Configuration;
-import android.graphics.PixelFormat;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.Gravity;
-import android.view.View;
-import android.view.WindowManager;
 
 /**
- * A small round "back to the panel" button drawn above the player app that was opened from the panel, so choosing a
- * playlist in the real app is never a dead end. It needs "display over other apps"; without it the Back key still
- * returns to the panel. It goes away when tapped, when the panel is shown again, or after ten minutes.
+ * The "back to the panel" button for a player app opened from the panel. It is drawn by BubbleService as the last
+ * button of the floating stack (so it moves together with the media and apps bubbles); this class only says whether
+ * it is wanted, ends it after ten minutes, and does the going back. Without "display over other apps" it never
+ * shows and the Back key still returns to the panel.
  */
 final class ReturnButton {
 
     private static final long LIFETIME_MS = 10 * 60_000L;
     private static final Handler handler = new Handler(Looper.getMainLooper());
-    private static View view;
-    private static WindowManager wm;
+    private static volatile boolean active;
 
     private ReturnButton() { }
 
-    /** panel is {left, top, width, height} in screen px: the panel's own window, where the button belongs. */
-    static void show(Context ctx, int[] panel) {
-        hide();
+    static boolean isActive() { return active; }
+
+    /** Asks for the button; the floating service adds it to the stack. */
+    static void show(Context ctx) {
         final Context app = ctx.getApplicationContext();
         if (!android.provider.Settings.canDrawOverlays(app)) return;
-        Settings s = Settings.of(app);
-        boolean night = (app.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-        view = new IconView(app, Icon.BACK, "Back to the panel", PanelStyle.isDark(s.theme(), night), 56, IconView.Style.MAIN, ReturnButton::goBack);
-        wm = app.getSystemService(WindowManager.class);
-        float d = app.getResources().getDisplayMetrics().density;
-        int size = Math.round(56 * d);
-        int[] xy = ReturnGeometry.start(panel[0], panel[1], panel[2], panel[3], size, Math.round(16 * d));
-        WindowManager.LayoutParams p = new WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, PixelFormat.TRANSLUCENT);
-        p.gravity = Gravity.TOP | Gravity.START;
-        xy = BubbleGeometry.toOverlayPoint(xy, OverlayOrigin.of(app));
-        p.x = xy[0];
-        p.y = xy[1];
-        try { wm.addView(view, p); Spike.log("return button: shown"); }
-        catch (Exception e) { Spike.log("return button: could not show " + e.getMessage()); view = null; return; }
-        handler.postDelayed(ReturnButton::hide, LIFETIME_MS);
-    }
-
-    static void hide() {
         handler.removeCallbacksAndMessages(null);
-        if (view == null) return;
-        try { wm.removeView(view); } catch (Exception ignored) { }
-        view = null;
+        active = true;
+        BubbleService.apply(app);
+        handler.postDelayed(() -> hide(app), LIFETIME_MS);
+        Spike.log("return button: shown");
     }
 
-    private static void goBack() {
+    static void hide(Context ctx) {
+        handler.removeCallbacksAndMessages(null);
+        if (!active) return;
+        active = false;
+        BubbleService.apply(ctx.getApplicationContext());
+    }
+
+    /** Brings the panel's own task back as it is (a fresh start would open the map app again), and removes the button. */
+    static void goBack(Context ctx) {
         Spike.log("return button: tapped");
-        Context app = view == null ? null : view.getContext();
-        hide();
-        if (app == null) return;
-        // bring the panel's own task back as it is (a fresh start would open the map app again)
+        Context app = ctx.getApplicationContext();
+        hide(app);
         try {
             java.util.List<android.app.ActivityManager.AppTask> tasks = app.getSystemService(android.app.ActivityManager.class).getAppTasks();
             if (!tasks.isEmpty()) { tasks.get(0).moveToFront(); return; }

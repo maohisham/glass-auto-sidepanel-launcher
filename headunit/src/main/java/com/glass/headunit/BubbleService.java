@@ -31,8 +31,8 @@ public class BubbleService extends Service {
     private static final int GAP_DP = 12;
 
     private WindowManager wm;
-    private BubbleFace mediaBubble, appsBubble;
-    private WindowManager.LayoutParams mediaParams, appsParams;
+    private BubbleFace mediaBubble, appsBubble, backBubble;
+    private WindowManager.LayoutParams mediaParams, appsParams, backParams;
     private MediaSessionManager msm;
     private final List<MediaController> watched = new ArrayList<>();
     private final MediaController.Callback sessionCallback = new MediaController.Callback() {
@@ -49,7 +49,7 @@ public class BubbleService extends Service {
     static void apply(Context ctx) {
         Intent i = new Intent(ctx, BubbleService.class);
         Settings s = Settings.of(ctx);
-        if ((s.bubble() || s.appsBubble()) && android.provider.Settings.canDrawOverlays(ctx)) ctx.startService(i);
+        if (BubbleGroup.needed(s.bubble(), s.appsBubble(), ReturnButton.isActive()) && android.provider.Settings.canDrawOverlays(ctx)) ctx.startService(i);
         else ctx.stopService(i);
     }
 
@@ -72,7 +72,7 @@ public class BubbleService extends Service {
 
     private int size() { return dp(64); }
 
-    private int count() { return (mediaBubble != null ? 1 : 0) + (appsBubble != null ? 1 : 0); }
+    private int count() { return (mediaBubble != null ? 1 : 0) + (appsBubble != null ? 1 : 0) + (backBubble != null ? 1 : 0); }
 
     /** Adds or removes each bubble to match its setting, then lines the pair up. */
     private void sync() {
@@ -85,7 +85,7 @@ public class BubbleService extends Service {
         if (s.bubble() && mediaBubble == null) {
             mediaBubble = new BubbleFace(this, dark, size(), Icon.PLAYER);
             mediaParams = params();
-            attach(mediaBubble, mediaParams, this::openPicker, true);
+            attach(mediaBubble, mediaParams, this::openPicker);
         } else if (!s.bubble() && mediaBubble != null) {
             closePicker();
             remove(mediaBubble);
@@ -94,11 +94,19 @@ public class BubbleService extends Service {
         if (s.appsBubble() && appsBubble == null) {
             appsBubble = new BubbleFace(this, dark, size(), Icon.APPS);
             appsParams = params();
-            attach(appsBubble, appsParams, this::openApps, false);
+            attach(appsBubble, appsParams, this::openApps);
         } else if (!s.appsBubble() && appsBubble != null) {
             closeApps();
             remove(appsBubble);
             appsBubble = null;
+        }
+        if (ReturnButton.isActive() && backBubble == null) {
+            backBubble = new BubbleFace(this, dark, size(), Icon.BACK);
+            backParams = params();
+            attach(backBubble, backParams, () -> ReturnButton.goBack(this));
+        } else if (!ReturnButton.isActive() && backBubble != null) {
+            remove(backBubble);
+            backBubble = null;
         }
         if (count() == 0) { stopSelf(); return; }
         layout();
@@ -132,9 +140,12 @@ public class BubbleService extends Service {
         anchorX = a[0];
         anchorY = a[1];
         int[][] pos = BubbleGroup.positions(anchorX, anchorY, size(), dp(GAP_DP), count());
-        int slot = 0;
-        if (mediaBubble != null) place(mediaBubble, mediaParams, pos[slot++]);
-        if (appsBubble != null) place(appsBubble, appsParams, pos[slot]);
+        int[] kinds = BubbleGroup.order(mediaBubble != null, appsBubble != null, backBubble != null);
+        for (int i = 0; i < kinds.length; i++) {
+            if (kinds[i] == BubbleGroup.MEDIA) place(mediaBubble, mediaParams, pos[i]);
+            else if (kinds[i] == BubbleGroup.APPS) place(appsBubble, appsParams, pos[i]);
+            else place(backBubble, backParams, pos[i]);
+        }
     }
 
     private void place(BubbleFace v, WindowManager.LayoutParams p, int[] xy) {
@@ -143,7 +154,7 @@ public class BubbleService extends Service {
         try { wm.updateViewLayout(v, p); } catch (Exception ignored) { }
     }
 
-    private void attach(final BubbleFace v, WindowManager.LayoutParams p, final Runnable onTap, boolean media) {
+    private void attach(final BubbleFace v, WindowManager.LayoutParams p, final Runnable onTap) {
         final int slop = ViewConfiguration.get(this).getScaledTouchSlop();
         v.setOnTouchListener(new View.OnTouchListener() {
             float downX, downY; int startAnchorX, startAnchorY; boolean moved;
@@ -170,7 +181,7 @@ public class BubbleService extends Service {
                 return false;
             }
         });
-        try { wm.addView(v, p); Spike.log(media ? "bubble: media bubble shown" : "bubble: apps bubble shown"); }
+        try { wm.addView(v, p); Spike.log("bubble: " + (v == mediaBubble ? "media" : v == appsBubble ? "apps" : "back") + " button shown"); }
         catch (Exception e) { Spike.log("bubble: could not show " + e.getMessage()); }
     }
 
@@ -277,6 +288,7 @@ public class BubbleService extends Service {
         closeApps();
         if (mediaBubble != null) { remove(mediaBubble); mediaBubble = null; }
         if (appsBubble != null) { remove(appsBubble); appsBubble = null; }
+        if (backBubble != null) { remove(backBubble); backBubble = null; }
         super.onDestroy();
     }
 }

@@ -14,7 +14,7 @@ final class PlayerLauncher {
         Intent i = ctx.getPackageManager().getLaunchIntentForPackage(pkg);
         if (i == null) { Toast.makeText(ctx, label + " cannot be opened here.", Toast.LENGTH_SHORT).show(); return; }
         if (!Intents.safeStart(ctx, i, label)) return;
-        if (android.provider.Settings.canDrawOverlays(ctx)) ReturnButton.show(ctx, bounds);
+        if (android.provider.Settings.canDrawOverlays(ctx)) ReturnButton.show(ctx);
         else Toast.makeText(ctx, "Press Back to return to the panel.", Toast.LENGTH_LONG).show();
     }
 }

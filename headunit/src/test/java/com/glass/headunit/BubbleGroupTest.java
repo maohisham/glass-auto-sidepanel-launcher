@@ -2,6 +2,8 @@ package com.glass.headunit;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -48,5 +50,40 @@ public class BubbleGroupTest {
     @Test
     public void aPairThatAlreadyFitsIsLeftAlone() {
         assertArrayEquals(new int[]{300, 250}, BubbleGroup.clamp(300, 250, 64, 12, 2, 1000, 800));
+    }
+
+    @Test
+    public void theStackIsMediaThenAppsThenTheBackButton() {
+        assertArrayEquals(new int[]{BubbleGroup.MEDIA, BubbleGroup.APPS, BubbleGroup.BACK}, BubbleGroup.order(true, true, true));
+    }
+
+    @Test
+    public void buttonsThatAreOffAreLeftOutAndTheOthersCloseUp() {
+        assertArrayEquals(new int[]{BubbleGroup.MEDIA, BubbleGroup.BACK}, BubbleGroup.order(true, false, true));
+        assertArrayEquals(new int[]{BubbleGroup.APPS}, BubbleGroup.order(false, true, false));
+        assertArrayEquals(new int[]{BubbleGroup.BACK}, BubbleGroup.order(false, false, true));
+        assertEquals(0, BubbleGroup.order(false, false, false).length);
+    }
+
+    @Test
+    public void theBackButtonAppearingNeverMovesTheOtherTwo() {
+        int[][] two = BubbleGroup.positions(100, 200, 64, 12, BubbleGroup.order(true, true, false).length);
+        int[][] three = BubbleGroup.positions(100, 200, 64, 12, BubbleGroup.order(true, true, true).length);
+        assertArrayEquals(two[0], three[0]);
+        assertArrayEquals(two[1], three[1]);
+        assertArrayEquals(new int[]{100, 352}, three[2]);
+    }
+
+    @Test
+    public void theServiceIsNeededWhileAnyButtonIsWanted() {
+        assertTrue(BubbleGroup.needed(false, false, true));   // only the back button, bubbles off
+        assertTrue(BubbleGroup.needed(true, false, false));
+        assertFalse(BubbleGroup.needed(false, false, false));
+    }
+
+    @Test
+    public void aStackOfThreeIsHeldInsideTheScreenAtTheBottom() {
+        // three 64 px buttons and two 12 px gaps are 216 px tall
+        assertArrayEquals(new int[]{100, 584}, BubbleGroup.clamp(100, 790, 64, 12, 3, 1000, 800));
     }
 }

@@ -3,7 +3,24 @@ package com.glass.headunit;
 /** Where the floating bubbles sit when there are one or two of them: stacked, moved together, kept on screen. Pure. */
 final class BubbleGroup {
 
+    /** The kinds of floating button, in stack order from the top. */
+    static final int MEDIA = 0, APPS = 1, BACK = 2;
+
     private BubbleGroup() { }
+
+    /** The buttons that are showing, top first: media, apps, then the temporary back button last so it never moves the others. */
+    static int[] order(boolean media, boolean apps, boolean back) {
+        int n = (media ? 1 : 0) + (apps ? 1 : 0) + (back ? 1 : 0);
+        int[] out = new int[n];
+        int i = 0;
+        if (media) out[i++] = MEDIA;
+        if (apps) out[i++] = APPS;
+        if (back) out[i] = BACK;
+        return out;
+    }
+
+    /** The floating service is needed while any button is wanted. */
+    static boolean needed(boolean media, boolean apps, boolean back) { return media || apps || back; }
 
     /** {x, y} of each bubble's top-left corner: slot 0 at the anchor, the others stacked below with a gap. */
     static int[][] positions(int anchorX, int anchorY, int size, int gap, int count) {
