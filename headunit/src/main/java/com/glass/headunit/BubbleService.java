@@ -41,6 +41,8 @@ public class BubbleService extends Service {
     };
     private final MediaSessionManager.OnActiveSessionsChangedListener sessionsListener = list -> { watch(list); refreshFace(); };
     private boolean listening;
+    private String shownPkg;                  // the app whose icon the media bubble shows, or null for the music note
+    private final android.os.Handler uiHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private PlayerPicker picker;
     private AppsGrid appsGrid;
     private int anchorX, anchorY;
@@ -85,7 +87,7 @@ public class BubbleService extends Service {
         if (s.bubble() && mediaBubble == null) {
             mediaBubble = new BubbleFace(this, dark, size(), Icon.PLAYER);
             mediaParams = params();
-            attach(mediaBubble, mediaParams, this::openPicker);
+            attach(mediaBubble, mediaParams, this::onMediaTap, this::openPicker);
         } else if (!s.bubble() && mediaBubble != null) {
             closePicker();
             remove(mediaBubble);
@@ -94,7 +96,7 @@ public class BubbleService extends Service {
         if (s.appsBubble() && appsBubble == null) {
             appsBubble = new BubbleFace(this, dark, size(), Icon.APPS);
             appsParams = params();
-            attach(appsBubble, appsParams, this::openApps);
+            attach(appsBubble, appsParams, this::openApps, null);
         } else if (!s.appsBubble() && appsBubble != null) {
             closeApps();
             remove(appsBubble);
@@ -103,7 +105,7 @@ public class BubbleService extends Service {
         if (ReturnButton.isActive() && backBubble == null) {
             backBubble = new BubbleFace(this, dark, size(), Icon.BACK);
             backParams = params();
-            attach(backBubble, backParams, () -> ReturnButton.goBack(this));
+            attach(backBubble, backParams, () -> ReturnButton.goBack(this), null);
         } else if (!ReturnButton.isActive() && backBubble != null) {
             remove(backBubble);
             backBubble = null;
@@ -158,19 +160,28 @@ public class BubbleService extends Service {
         try { wm.updateViewLayout(v, p); } catch (Exception ignored) { }
     }
 
-    private void attach(final BubbleFace v, WindowManager.LayoutParams p, final Runnable onTap) {
+    private void attach(final BubbleFace v, WindowManager.LayoutParams p, final Runnable onTap, final Runnable onLongPress) {
         final int slop = ViewConfiguration.get(this).getScaledTouchSlop();
         v.setOnTouchListener(new View.OnTouchListener() {
-            float downX, downY; int startAnchorX, startAnchorY; boolean moved;
+            float downX, downY, movedPx; int startAnchorX, startAnchorY; boolean moved, longFired;
+            final Runnable longPress = () -> {
+                if (onLongPress == null || !BubbleTap.longPressStillValid(moved, movedPx, slop)) return;
+                longFired = true;
+                Spike.log("bubble: long press on the " + (v == mediaBubble ? "media" : v == appsBubble ? "apps" : "back") + " button");
+                onLongPress.run();
+            };
             @Override public boolean onTouch(View view, MotionEvent e) {
                 switch (e.getAction()) {
                     case MotionEvent.ACTION_DOWN:
-                        downX = e.getRawX(); downY = e.getRawY(); startAnchorX = anchorX; startAnchorY = anchorY; moved = false;
+                        downX = e.getRawX(); downY = e.getRawY(); startAnchorX = anchorX; startAnchorY = anchorY; moved = false; longFired = false; movedPx = 0;
+                        uiHandler.postDelayed(longPress, BubbleTap.LONG_PRESS_MS);
                         return true;
                     case MotionEvent.ACTION_MOVE:
                         float dx = e.getRawX() - downX, dy = e.getRawY() - downY;
-                        if (Math.abs(dx) > slop || Math.abs(dy) > slop) moved = true;
+                        movedPx = Math.max(Math.abs(dx), Math.abs(dy));
+                        if (movedPx > slop) moved = true;
                         if (moved) {
+                            uiHandler.removeCallbacks(longPress);
                             // whichever bubble is dragged, the anchor moves and the other bubble follows it
                             anchorX = startAnchorX + Math.round(dx);
                             anchorY = startAnchorY + Math.round(dy);
@@ -178,8 +189,12 @@ public class BubbleService extends Service {
                         }
                         return true;
                     case MotionEvent.ACTION_UP:
+                        uiHandler.removeCallbacks(longPress);
                         if (moved) Settings.of(BubbleService.this).setBubble(anchorX, anchorY);
-                        else { Spike.log("bubble: tap on the " + (v == mediaBubble ? "media" : v == appsBubble ? "apps" : "back") + " button"); onTap.run(); }
+                        else if (!longFired) { Spike.log("bubble: tap on the " + (v == mediaBubble ? "media" : v == appsBubble ? "apps" : "back") + " button"); onTap.run(); }
+                        return true;
+                    case MotionEvent.ACTION_CANCEL:
+                        uiHandler.removeCallbacks(longPress);
                         return true;
                 }
                 return false;
@@ -187,6 +202,16 @@ public class BubbleService extends Service {
         });
         try { wm.addView(v, p); Spike.log("bubble: " + (v == mediaBubble ? "media" : v == appsBubble ? "apps" : "back") + " button shown"); }
         catch (Exception e) { Spike.log("bubble: could not show " + e.getMessage()); }
+    }
+
+    /** A tap on the media bubble opens the app whose icon it shows (on the panel's side); with only the note it opens Players. */
+    private void onMediaTap() {
+        boolean launchable = shownPkg != null && getPackageManager().getLaunchIntentForPackage(shownPkg) != null;
+        if (BubbleTap.onTap(shownPkg, launchable) != BubbleTap.OPEN_APP) { openPicker(); return; }
+        closePicker();
+        closeApps();
+        int[] bounds = PanelBounds.get();
+        OpenInPanel.request(this, shownPkg, Proxy.label(this, shownPkg), bounds != null ? bounds : new int[]{0, 0, 0, 0});
     }
 
     private void remove(View v) {
@@ -224,6 +249,7 @@ public class BubbleService extends Service {
             playing[i] = st != null && (st.getState() == PlaybackState.STATE_PLAYING || st.getState() == PlaybackState.STATE_BUFFERING);
         }
         String pkg = BubbleIcon.choose(pkgs, playing);
+        shownPkg = pkg;
         android.graphics.drawable.Drawable icon = null;
         if (pkg != null) { try { icon = getPackageManager().getApplicationIcon(pkg); } catch (Exception ignored) { } }
         mediaBubble.setApp(icon);
@@ -285,6 +311,7 @@ public class BubbleService extends Service {
 
     @Override
     public void onDestroy() {
+        uiHandler.removeCallbacksAndMessages(null);
         if (msm != null) { try { msm.removeOnActiveSessionsChangedListener(sessionsListener); } catch (Exception ignored) { } }
         for (MediaController c : watched) c.unregisterCallback(sessionCallback);
         watched.clear();
