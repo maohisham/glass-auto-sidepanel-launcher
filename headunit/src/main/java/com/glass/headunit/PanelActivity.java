@@ -250,8 +250,8 @@ public class PanelActivity extends Activity {
         panel.setControls(new PanelView.Controls() {
             @Override public void play() { follower.play(); }
             @Override public void pause() { follower.pause(); }
-            @Override public void next() { follower.next(); }
-            @Override public void previous() { follower.previous(); }
+            @Override public void next() { Spike.log("skip: next sent to " + follower.currentPackage()); follower.next(); }
+            @Override public void previous() { Spike.log("skip: previous sent to " + follower.currentPackage()); follower.previous(); }
             @Override public void toggleShuffle() { follower.toggleShuffle(); }
             @Override public void toggleRepeat() { follower.toggleRepeat(); }
             @Override public void seekTo(long ms) { follower.seekTo(ms); }

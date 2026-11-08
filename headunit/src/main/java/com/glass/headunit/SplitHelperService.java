@@ -173,6 +173,7 @@ public class SplitHelperService extends AccessibilityService {
     void openPanel(boolean adjacent) { launch(getPackageName(), adjacent); }
 
     private void launch(String pkg, boolean adjacent) {
+        Spike.log("launch: the window helper opens " + pkg + (adjacent ? " beside the other app" : ""));
         Intent i = getPackageManager().getLaunchIntentForPackage(pkg);
         if (i == null) { Spike.log("helper: cannot launch " + pkg); return; }
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | (adjacent ? Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT | Intent.FLAG_ACTIVITY_MULTIPLE_TASK : 0));

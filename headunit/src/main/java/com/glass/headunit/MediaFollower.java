@@ -116,6 +116,9 @@ final class MediaFollower {
         detach();
     }
 
+    /** The package of the player being followed, or "nothing" (for the log). */
+    String currentPackage() { return target == null ? "nothing" : target.getPackageName(); }
+
     void play() { if (target != null) target.getTransportControls().play(); }
     void pause() { if (target != null) target.getTransportControls().pause(); }
     void next() { if (target != null) target.getTransportControls().skipToNext(); }

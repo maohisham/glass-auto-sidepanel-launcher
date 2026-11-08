@@ -605,6 +605,7 @@ final class PanelView extends LinearLayout {
         Intent i = pkg == null ? null : getContext().getPackageManager().getLaunchIntentForPackage(pkg);
         if (i == null) return;
         i.addFlags(Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT);
+        Spike.log("launch: the panel opens the map app " + pkg);
         Intents.safeStart(getContext(), i, MapAppRepo.label(getContext(), pkg));
         // The system splits the screen 50:50: the window helper moves the divider to the user's ratio
         SplitHelperService helper = SplitHelperService.get();
