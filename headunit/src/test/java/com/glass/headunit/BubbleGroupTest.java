@@ -53,25 +53,33 @@ public class BubbleGroupTest {
     }
 
     @Test
-    public void theStackIsMediaThenAppsThenTheBackButton() {
-        assertArrayEquals(new int[]{BubbleGroup.MEDIA, BubbleGroup.APPS, BubbleGroup.BACK}, BubbleGroup.order(true, true, true));
+    public void theBackButtonIsAtTheTopThenMediaThenApps() {
+        assertArrayEquals(new int[]{BubbleGroup.BACK, BubbleGroup.MEDIA, BubbleGroup.APPS}, BubbleGroup.order(true, true, true));
     }
 
     @Test
     public void buttonsThatAreOffAreLeftOutAndTheOthersCloseUp() {
-        assertArrayEquals(new int[]{BubbleGroup.MEDIA, BubbleGroup.BACK}, BubbleGroup.order(true, false, true));
+        assertArrayEquals(new int[]{BubbleGroup.BACK, BubbleGroup.MEDIA}, BubbleGroup.order(true, false, true));
         assertArrayEquals(new int[]{BubbleGroup.APPS}, BubbleGroup.order(false, true, false));
         assertArrayEquals(new int[]{BubbleGroup.BACK}, BubbleGroup.order(false, false, true));
         assertEquals(0, BubbleGroup.order(false, false, false).length);
     }
 
     @Test
-    public void theBackButtonAppearingNeverMovesTheOtherTwo() {
-        int[][] two = BubbleGroup.positions(100, 200, 64, 12, BubbleGroup.order(true, true, false).length);
-        int[][] three = BubbleGroup.positions(100, 200, 64, 12, BubbleGroup.order(true, true, true).length);
-        assertArrayEquals(two[0], three[0]);
-        assertArrayEquals(two[1], three[1]);
-        assertArrayEquals(new int[]{100, 352}, three[2]);
+    public void theBackButtonAppearingAboveLeavesMediaAndAppsWhereTheyAre() {
+        int base = 300;   // top of the media and apps group
+        int[][] two = BubbleGroup.positions(100, base - BubbleGroup.upShift(false, true, 64, 12), 64, 12, 2);
+        int[][] three = BubbleGroup.positions(100, base - BubbleGroup.upShift(true, true, 64, 12), 64, 12, 3);
+        assertArrayEquals(new int[]{100, 224}, three[0]);   // the back button, one slot above
+        assertArrayEquals(two[0], three[1]);                // media stays put
+        assertArrayEquals(two[1], three[2]);                // apps stays put
+    }
+
+    @Test
+    public void aLoneBackButtonSitsAtTheBaseWithNothingAboveIt() {
+        assertEquals(0, BubbleGroup.upShift(true, false, 64, 12));
+        assertEquals(76, BubbleGroup.upShift(true, true, 64, 12));
+        assertEquals(0, BubbleGroup.upShift(false, true, 64, 12));
     }
 
     @Test

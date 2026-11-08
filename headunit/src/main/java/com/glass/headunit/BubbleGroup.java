@@ -8,16 +8,19 @@ final class BubbleGroup {
 
     private BubbleGroup() { }
 
-    /** The buttons that are showing, top first: media, apps, then the temporary back button last so it never moves the others. */
+    /** The buttons that are showing, top first: the temporary back button, then media, then apps. */
     static int[] order(boolean media, boolean apps, boolean back) {
         int n = (media ? 1 : 0) + (apps ? 1 : 0) + (back ? 1 : 0);
         int[] out = new int[n];
         int i = 0;
+        if (back) out[i++] = BACK;
         if (media) out[i++] = MEDIA;
-        if (apps) out[i++] = APPS;
-        if (back) out[i] = BACK;
+        if (apps) out[i] = APPS;
         return out;
     }
+
+    /** How far the stack's top sits above the media and apps group: one slot for a back button above them, else nothing, so they never move. */
+    static int upShift(boolean back, boolean others, int size, int gap) { return back && others ? size + gap : 0; }
 
     /** The floating service is needed while any button is wanted. */
     static boolean needed(boolean media, boolean apps, boolean back) { return media || apps || back; }

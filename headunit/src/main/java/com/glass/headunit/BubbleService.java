@@ -22,8 +22,8 @@ import java.util.List;
 
 /**
  * The optional floating buttons: a media bubble (the playing app's icon, opens the player picker) and an apps bubble
- * (opens the apps grid). They are small static round buttons above other apps. When both are on they are stacked and
- * move together, so dragging either one carries the other. Each starts inside the panel's window and opens its
+ * (opens the apps grid), plus a temporary back button above them while a player app is open. They are small static
+ * round buttons above other apps, stacked, and they move together, so dragging one carries the others. Each starts inside the panel's window and opens its
  * screen in an overlay the size of that window, so the map stays visible. It needs "display over other apps".
  */
 public class BubbleService extends Service {
@@ -133,13 +133,17 @@ public class BubbleService extends Service {
         return p;
     }
 
-    /** Puts each bubble at its slot below the anchor (media first, apps second), keeping the stack on screen. */
+    /**
+     * Puts each bubble at its slot, keeping the whole stack on screen. The anchor is the top of the media and apps
+     * group: a back button, when there is one, sits one slot above it without moving them.
+     */
     private void layout() {
         int[] area = OverlayOrigin.area(this);
-        int[] a = BubbleGroup.clamp(anchorX, anchorY, size(), dp(GAP_DP), count(), area[0], area[1]);
+        int up = BubbleGroup.upShift(backBubble != null, mediaBubble != null || appsBubble != null, size(), dp(GAP_DP));
+        int[] a = BubbleGroup.clamp(anchorX, anchorY - up, size(), dp(GAP_DP), count(), area[0], area[1]);
         anchorX = a[0];
-        anchorY = a[1];
-        int[][] pos = BubbleGroup.positions(anchorX, anchorY, size(), dp(GAP_DP), count());
+        anchorY = a[1] + up;
+        int[][] pos = BubbleGroup.positions(anchorX, anchorY - up, size(), dp(GAP_DP), count());
         int[] kinds = BubbleGroup.order(mediaBubble != null, appsBubble != null, backBubble != null);
         for (int i = 0; i < kinds.length; i++) {
             if (kinds[i] == BubbleGroup.MEDIA) place(mediaBubble, mediaParams, pos[i]);
@@ -175,7 +179,7 @@ public class BubbleService extends Service {
                         return true;
                     case MotionEvent.ACTION_UP:
                         if (moved) Settings.of(BubbleService.this).setBubble(anchorX, anchorY);
-                        else onTap.run();
+                        else { Spike.log("bubble: tap on the " + (v == mediaBubble ? "media" : v == appsBubble ? "apps" : "back") + " button"); onTap.run(); }
                         return true;
                 }
                 return false;
@@ -266,7 +270,7 @@ public class BubbleService extends Service {
     }
 
     private void openApps() {
-        if (appsGrid != null) return;
+        if (appsGrid != null) { Spike.log("bubble: the apps grid is already open"); return; }
         closePicker();
         appsGrid = new AppsGrid(this, isDark(), this::closeApps);
         try { wm.addView(appsGrid, overlayParams(overlayBounds())); }
