@@ -110,4 +110,104 @@ public class EcoScoreTest {
         assertEquals("2m 05s", EcoScore.duration(125));
         assertEquals("42s", EcoScore.duration(42));
     }
+
+    // ---- with a car ----
+
+    private static final CarProfile MYVI = CarProfile.byId(CarProfile.MYVI);
+    private static final CarProfile TIGGO = CarProfile.byId(CarProfile.TIGGO);
+
+    @Test
+    public void aCarMakesTheEstimatedFuelAppearForTheTrip() {
+        EcoScore e = new EcoScore();
+        e.setCar(MYVI, 0f);
+        drive(e, 60f, 0, 3600);
+        EcoScore.Stats s = e.calculate(T0 + 3_600_000L);
+        assertEquals(2.76f, s.estFuelL, 0.05f);
+        assertEquals(4.6f, s.estLPer100, 0.1f);
+        assertEquals(5.0f, s.claimedLPer100, 0.001f);
+    }
+
+    @Test
+    public void withoutACarThereIsNoFuelEstimateAndTheOldScoreStands() {
+        EcoScore e = new EcoScore();
+        drive(e, 75f, 0, 600);
+        EcoScore.Stats s = e.calculate(T0 + 600_000L);
+        assertEquals(0f, s.estFuelL, 0f);
+        assertFalse(s.hasCar);
+        assertTrue(s.score >= 95);
+    }
+
+    @Test
+    public void steadySeventyScoresFullFuelPointsInBothCars() {
+        for (CarProfile p : new CarProfile[]{MYVI, TIGGO}) {
+            EcoScore e = new EcoScore();
+            e.setCar(p, 0f);
+            drive(e, 70f, 0, 600);
+            EcoScore.Stats s = e.calculate(T0 + 600_000L);
+            assertEquals(p.name, 100f, s.effScore, 0.5f);
+        }
+    }
+
+    @Test
+    public void slowCityCrawlingCostsFuelPoints() {
+        EcoScore e = new EcoScore();
+        e.setCar(MYVI, 0f);
+        drive(e, 25f, 0, 600);
+        EcoScore.Stats s = e.calculate(T0 + 600_000L);
+        assertEquals(43f, s.effScore, 2f);   // 8.15 L/100 km against a 6.25 baseline
+    }
+
+    @Test
+    public void theMyvisBestBandStartsFiveKmhLowerThanTheGenericOne() {
+        EcoScore generic = new EcoScore();
+        drive(generic, 56f, 0, 300);
+        EcoScore myvi = new EcoScore();
+        myvi.setCar(MYVI, 0f);
+        drive(myvi, 56f, 0, 300);
+        assertEquals(70f, generic.calculate(T0 + 300_000L).zoneScore, 0.5f);
+        assertEquals(100f, myvi.calculate(T0 + 300_000L).zoneScore, 0.5f);
+    }
+
+    @Test
+    public void aRealAverageRescalesTheEstimate() {
+        EcoScore plain = new EcoScore();
+        plain.setCar(MYVI, 0f);
+        drive(plain, 60f, 0, 600);
+        EcoScore tuned = new EcoScore();
+        tuned.setCar(MYVI, 7.5f);       // scale 1.2
+        drive(tuned, 60f, 0, 600);
+        assertEquals(plain.calculate(T0 + 600_000L).estFuelL * 1.2f, tuned.calculate(T0 + 600_000L).estFuelL, 0.01f);
+    }
+
+    @Test
+    public void switchingToAnotherCarEndsTheTripButTheSameCarDoesNot() {
+        EcoScore e = new EcoScore();
+        e.setCar(MYVI, 0f);
+        drive(e, 60f, 0, 60);
+        assertTrue(e.isTripActive());
+        e.setCar(MYVI, 6.5f);            // only the real average changed
+        assertTrue(e.isTripActive());
+        e.setCar(TIGGO, 0f);
+        assertFalse(e.isTripActive());
+    }
+
+    @Test
+    public void standingStillBurnsIdleFuelInTheEstimate() {
+        EcoScore e = new EcoScore();
+        e.setCar(TIGGO, 0f);
+        drive(e, 60f, 0, 60);
+        float before = e.calculate(T0 + 60_000L).estFuelL;
+        drive(e, 0f, 60, 3600);          // an hour at a standstill
+        float after = e.calculate(T0 + 3_660_000L).estFuelL;
+        assertEquals(1.0f, after - before, 0.05f);
+    }
+
+    @Test
+    public void theTipSaysWhenFuelUseIsWellOverTheBaseline() {
+        EcoScore e = new EcoScore();
+        e.setCar(MYVI, 0f);
+        drive(e, 25f, 0, 600);
+        String tip = EcoScore.tip(e.calculate(T0 + 600_000L));
+        assertTrue(tip, tip.startsWith("Fuel use is"));
+    }
 }

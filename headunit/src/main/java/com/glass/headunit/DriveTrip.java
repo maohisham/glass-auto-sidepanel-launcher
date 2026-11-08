@@ -8,4 +8,10 @@ final class DriveTrip {
     private DriveTrip() { }
 
     static EcoScore trip() { return TRIP; }
+
+    /** Points the trip at the car chosen in Settings (and its real average); another car ends the trip. */
+    static void configure(Settings s) {
+        String id = s.car();
+        TRIP.setCar(CarProfile.byId(id), s.realAverage(id));
+    }
 }

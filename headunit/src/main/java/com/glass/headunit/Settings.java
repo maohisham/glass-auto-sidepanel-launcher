@@ -94,6 +94,17 @@ final class Settings {
     boolean swipeTrack() { return sp.getBoolean("swipeTrack", true); }
     void setSwipeTrack(boolean v) { sp.edit().putBoolean("swipeTrack", v).apply(); }
 
+    /** The car the driving score is for: CarProfile.MYVI, TIGGO, or OTHER (the generic score, the default). */
+    String car() { return sp.getString("car", CarProfile.OTHER); }
+    void setCar(String id) { sp.edit().putString("car", id == null ? CarProfile.OTHER : id).apply(); }
+
+    /** The user's own fuel average for that car in L/100 km, or 0 when not given. */
+    float realAverage(String carId) { return sp.getFloat("realAvg_" + carId, 0f); }
+    void setRealAverage(String carId, float v) {
+        float clean = v >= 2f && v <= 30f ? v : 0f;     // anything else counts as "not given"
+        sp.edit().putFloat("realAvg_" + carId, clean).apply();
+    }
+
     /** Open the map app beside the panel when the panel starts (on by default); off launches only the panel. */
     boolean autoOpenMaps() { return sp.getBoolean("autoOpenMaps", true); }
     void setAutoOpenMaps(boolean v) { sp.edit().putBoolean("autoOpenMaps", v).apply(); }
