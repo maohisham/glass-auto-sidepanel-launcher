@@ -1,10 +1,10 @@
 # Installing Glass Panel on a head unit
 
-The APK is `docs/GlassHeadUnit-0.1-headunit.apk`. It is always signed with the same key, so a newer APK installs over an older one without uninstalling (keep `headunit/keystore/` safe: a different key forces an uninstall).
+The APK is `docs/GlassSidePanel-0.2-headunit.apk`. It is always signed with the same key, so a newer APK installs over an older one without uninstalling (keep `headunit/keystore/` safe: a different key forces an uninstall).
 
 ## Put the APK on the unit
 
-- **Carlinkit Ultra 2 (adb):** `adb install -r docs/GlassHeadUnit-0.1-headunit.apk`
+- **Carlinkit Ultra 2 (adb):** `adb install -r docs/GlassSidePanel-0.2-headunit.apk`
 - **Eonon UX7ST (no adb):** copy the APK to Google Drive from the Mac, open Drive on the unit, tap the file, and allow "install unknown apps" for Drive the first time.
 
 ## Turn things on (once per unit, by hand in Settings)
