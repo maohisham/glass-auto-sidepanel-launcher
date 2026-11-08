@@ -12,6 +12,11 @@ final class OpenRoute {
 
     private OpenRoute() { }
 
+    /** A request that had to wait for the panel to come forward is dropped if the panel took longer than this (ms). */
+    static final long WAIT_LIMIT_MS = 5000;
+
+    static boolean isFresh(long requestedAtMs, long nowMs) { return nowMs - requestedAtMs <= WAIT_LIMIT_MS; }
+
     static int choose(boolean fromPanelWindow, boolean panelVisible) {
         if (fromPanelWindow) return DIRECT;
         return panelVisible ? VIA_PANEL_NOW : BRING_PANEL_FIRST;

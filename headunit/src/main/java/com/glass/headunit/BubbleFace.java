@@ -11,14 +11,17 @@ import android.view.View;
 final class BubbleFace extends View {
 
     private final boolean dark;
+    private final Icon generic;
     private final int sizePx;
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG), stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path clip = new Path();
     private Drawable app;
 
-    BubbleFace(Context ctx, boolean dark, int sizePx) {
+    /** generic is the icon drawn when no app icon is set (the music note for the media bubble, the grid for the apps bubble). */
+    BubbleFace(Context ctx, boolean dark, int sizePx, Icon generic) {
         super(ctx);
         this.dark = dark;
+        this.generic = generic;
         this.sizePx = sizePx;
         setBackground(Glass.button(ctx, dark, true, false, 0));
         stroke.setStyle(Paint.Style.STROKE);
@@ -46,7 +49,7 @@ final class BubbleFace extends View {
             float icon = sizePx * 0.46f;
             c.save();
             c.translate((sizePx - icon) / 2f, (sizePx - icon) / 2f);
-            Icons.draw(c, Icon.PLAYER, icon, fill, stroke);
+            Icons.draw(c, generic, icon, fill, stroke);
             c.restore();
             return;
         }

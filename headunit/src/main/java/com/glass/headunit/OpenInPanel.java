@@ -21,6 +21,7 @@ final class OpenInPanel {
     private static Opener opener;                       // set while the panel is on screen
     private static String pendingPkg, pendingLabel;
     private static int[] pendingBounds;
+    private static long pendingAt;
 
     private OpenInPanel() { }
 
@@ -33,7 +34,7 @@ final class OpenInPanel {
                 opener.open(pkg, label, bounds);
                 break;
             default:
-                pendingPkg = pkg; pendingLabel = label; pendingBounds = bounds;
+                pendingPkg = pkg; pendingLabel = label; pendingBounds = bounds; pendingAt = android.os.SystemClock.elapsedRealtime();
                 bringPanelForward(ctx);
         }
     }
@@ -45,6 +46,7 @@ final class OpenInPanel {
         final String pkg = pendingPkg, label = pendingLabel;
         final int[] b = pendingBounds;
         pendingPkg = null;
+        if (!OpenRoute.isFresh(pendingAt, android.os.SystemClock.elapsedRealtime())) return;   // too late: do not surprise the user
         handler.postDelayed(() -> { if (opener != null) opener.open(pkg, label, b); }, 400);   // after the panel has been laid out
     }
 

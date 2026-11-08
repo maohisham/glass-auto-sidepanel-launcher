@@ -62,9 +62,6 @@ public class PanelActivity extends Activity {
         }
     };
 
-    /** The bubble's picker asks the panel to open a player app, so the app lands on the panel's own side. */
-    private final OpenInPanel.Opener opener = (pkg, label, bounds) -> PlayerLauncher.open(this, pkg, label, bounds);
-
     /** Tells the floating bubble where this window really is on screen. */
     private void publishBounds() {
         int[] at = new int[2];
@@ -227,7 +224,6 @@ public class PanelActivity extends Activity {
     @Override
     protected void onStart() {
         super.onStart();
-        OpenInPanel.register(opener);
         ReturnButton.hide();   // the panel is back in front: the floating way back is no longer needed
         applyStyle(getResources().getConfiguration());
         handler.post(tick);
@@ -290,7 +286,6 @@ public class PanelActivity extends Activity {
     @Override
     protected void onStop() {
         super.onStop();
-        OpenInPanel.unregister(opener);
         handler.removeCallbacks(tick);
         handler.removeCallbacks(demoStep);
         hidePicker();

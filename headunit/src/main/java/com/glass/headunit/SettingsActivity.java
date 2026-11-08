@@ -109,15 +109,18 @@ public class SettingsActivity extends Activity {
         root.addView(zoneRow);
         root.addView(button("Choose a zone…", () -> startActivity(new Intent(this, ZonePickerActivity.class))));
 
-        root.addView(heading("Floating player bubble"));
-        root.addView(toggle("Show the bubble", s.bubble(), on -> {
+        root.addView(heading("Floating bubbles"));
+        root.addView(toggle("Show the media bubble", s.bubble(), on -> {
             s.setBubble(on);
-            if (on && !android.provider.Settings.canDrawOverlays(this)) {
-                Intents.safeStart(this, new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:" + getPackageName())), "display over other apps");
-            }
+            askOverlayIfNeeded(on);
             BubbleService.apply(this);
         }));
-        root.addView(button("Reset the bubble's position", () -> { s.resetBubble(); stopService(new Intent(this, BubbleService.class)); BubbleService.apply(this); }));
+        root.addView(toggle("Show the apps bubble (stacked under the media bubble; they move together)", s.appsBubble(), on -> {
+            s.setAppsBubble(on);
+            askOverlayIfNeeded(on);
+            BubbleService.apply(this);
+        }));
+        root.addView(button("Reset the bubbles' position", () -> { s.resetBubble(); stopService(new Intent(this, BubbleService.class)); BubbleService.apply(this); }));
 
         root.addView(heading("Setup"));
         checklistBox = new LinearLayout(this);
@@ -141,6 +144,13 @@ public class SettingsActivity extends Activity {
         zoneRow.setText(s.manualZone().isEmpty() ? "Automatic: follows the GPS" : "Manual: " + s.manualZone());
         buildChecklist();
         BubbleService.apply(this); // picks up a permission granted while Settings was away
+    }
+
+    /** Floating bubbles need "display over other apps": send the user to that page the first time. */
+    private void askOverlayIfNeeded(boolean on) {
+        if (on && !android.provider.Settings.canDrawOverlays(this)) {
+            Intents.safeStart(this, new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:" + getPackageName())), "display over other apps");
+        }
     }
 
     /** Keeps the home launcher toggle and its status line in step with what Android reports. */

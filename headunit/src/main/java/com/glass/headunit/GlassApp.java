@@ -16,6 +16,25 @@ public class GlassApp extends Application {
             try { Spike.log("CRASH on " + t.getName() + ": " + android.util.Log.getStackTraceString(e)); } catch (Throwable ignored) { }
             if (previous != null) previous.uncaughtException(t, e);
         });
+        registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
+            // Every screen of this app (the panel, Settings, ...) lives in the panel's window, so any started one can
+            // open a player app on the panel's side for the floating bubbles.
+            private final java.util.Map<android.app.Activity, OpenInPanel.Opener> openers = new java.util.HashMap<>();
+            @Override public void onActivityStarted(android.app.Activity a) {
+                OpenInPanel.Opener o = (pkg, label, bounds) -> PlayerLauncher.open(a, pkg, label, bounds);
+                openers.put(a, o);
+                OpenInPanel.register(o);
+            }
+            @Override public void onActivityStopped(android.app.Activity a) {
+                OpenInPanel.Opener o = openers.remove(a);
+                if (o != null) OpenInPanel.unregister(o);
+            }
+            @Override public void onActivityCreated(android.app.Activity a, android.os.Bundle b) { }
+            @Override public void onActivityResumed(android.app.Activity a) { }
+            @Override public void onActivityPaused(android.app.Activity a) { }
+            @Override public void onActivitySaveInstanceState(android.app.Activity a, android.os.Bundle b) { }
+            @Override public void onActivityDestroyed(android.app.Activity a) { }
+        });
         Spike.log("process started");
     }
 }
