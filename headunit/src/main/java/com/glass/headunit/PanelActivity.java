@@ -108,6 +108,7 @@ public class PanelActivity extends Activity {
         boolean dark = PanelStyle.isDark(s.theme(), night);
         panel.setStyle(PanelMode.forWidthDp(c.screenWidthDp), s.textSize(), s.lyricsSize(), dark);
         panel.setClock(s.showClock(), s.clockMode());
+        panel.setSwipeEnabled(s.swipeTrack());
         panel.setOnApps(s.homeLauncher() ? this::showApps : null);
         getWindow().getDecorView().setBackgroundColor(PanelStyle.bg(dark));
     }
@@ -253,6 +254,7 @@ public class PanelActivity extends Activity {
             @Override public void previous() { follower.previous(); }
             @Override public void toggleShuffle() { follower.toggleShuffle(); }
             @Override public void toggleRepeat() { follower.toggleRepeat(); }
+            @Override public void seekTo(long ms) { follower.seekTo(ms); }
         });
         follower.start();
         controller.start();
@@ -336,7 +338,7 @@ public class PanelActivity extends Activity {
 
     private static NowPlaying demoRadio() {
         return new NowPlaying(Proxy.VRADIO, "VRadio", "Hot FM", "Now playing: Sesaat Cuma Kamu", true, 0, 0, null, false, -1,
-                false, false, false, 0, null, "");
+                false, false, false, 0, null, "", false);
     }
 
     private static NowPlaying demoNow(int line) {
@@ -347,6 +349,6 @@ public class PanelActivity extends Activity {
         l.lines.addAll(Arrays.asList(lines));
         for (int i = 0; i < lines.length; i++) l.times.add(i * 3000L);
         return new NowPlaying("demo.player", "Demo", "Stay a while, we're parked", "Senja Sessions", true,
-                line * 3000L, 36000, l, false, line, true, true, true, android.support.v4.media.session.PlaybackStateCompat.REPEAT_MODE_ALL, null, "");
+                line * 3000L, 36000, l, false, line, true, true, true, android.support.v4.media.session.PlaybackStateCompat.REPEAT_MODE_ALL, null, "", true);
     }
 }

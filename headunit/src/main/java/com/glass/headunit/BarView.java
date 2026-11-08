@@ -17,6 +17,12 @@ final class BarView extends View {
     private float fraction;
     private final int solid;   // 0 = the accent gradient
 
+    /** Reports a drag: the spot as a fraction, and done=true on release (false while the finger is still down). */
+    interface SeekListener { void onSeek(float fraction, boolean done); }
+
+    private SeekListener seekListener;
+    private boolean seekable, dragging;
+
     BarView(Context ctx, boolean dark, boolean knob) { this(ctx, dark, knob, 0); }
 
     BarView(Context ctx, boolean dark, boolean knob, int solidColor) {
@@ -28,6 +34,49 @@ final class BarView extends View {
         knobP.setColor(0xFFFFFFFF);
     }
 
+    /** Turns dragging on or off; a bar that is not seekable only displays. */
+    void setSeekable(boolean on, SeekListener l) {
+        seekable = on && knob;
+        seekListener = l;
+        if (!seekable) dragging = false;
+    }
+
+    boolean isSeekable() { return seekable; }
+
+    boolean isDragging() { return dragging; }
+
+    private float padPx() { return knob ? Glass.dp(getContext(), 7) : 0; }
+
+    @Override
+    public boolean onTouchEvent(android.view.MotionEvent e) {
+        if (!seekable || seekListener == null) return super.onTouchEvent(e);
+        switch (e.getActionMasked()) {
+            case android.view.MotionEvent.ACTION_DOWN:
+                dragging = true;
+                if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);   // a drag here is a seek, not a scroll
+                move(e.getX(), false);
+                return true;
+            case android.view.MotionEvent.ACTION_MOVE:
+                if (dragging) move(e.getX(), false);
+                return true;
+            case android.view.MotionEvent.ACTION_UP:
+                if (dragging) { dragging = false; move(e.getX(), true); }
+                return true;
+            case android.view.MotionEvent.ACTION_CANCEL:
+                dragging = false;
+                return true;
+            default:
+                return true;
+        }
+    }
+
+    private void move(float x, boolean done) {
+        float f = SeekRule.fraction(x, getWidth(), Math.round(padPx()));
+        fraction = f;
+        invalidate();
+        seekListener.onSeek(f, done);
+    }
+
     void setFraction(float f) {
         f = Math.max(0f, Math.min(1f, f));
         if (Math.abs(f - fraction) < 0.0005f) return;
@@ -37,7 +86,7 @@ final class BarView extends View {
 
     @Override
     protected void onMeasure(int w, int h) {
-        setMeasuredDimension(resolveSize(Glass.dp(getContext(), 100), w), Glass.dp(getContext(), knob ? 14 : 10));
+        setMeasuredDimension(resolveSize(Glass.dp(getContext(), 100), w), Glass.dp(getContext(), knob ? 40 : 10));   // the song bar is tall to touch, drawn thin
     }
 
     @Override

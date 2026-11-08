@@ -318,6 +318,7 @@ final class MediaFollower {
         boolean repeatAvailable = ControlsPolicy.showRepeat(target.getPackageName(), ps == null ? 0 : ps.getActions());
         int repeatMode = repeatAvailable && compat != null ? compat.getRepeatMode() : 0;
         return new NowPlaying(target.getPackageName(), Proxy.label(ctx, target.getPackageName()), title, artist,
-                isPlaying(target), pos, dur, lyrics, lyricsLoading, line, shuffleAvailable, shuffleOn, repeatAvailable, repeatMode, cover, coverId);
+                isPlaying(target), pos, dur, lyrics, lyricsLoading, line, shuffleAvailable, shuffleOn, repeatAvailable, repeatMode, cover, coverId,
+                SeekRule.canSeek(target.getPackageName(), ps == null ? 0 : ps.getActions(), dur));
     }
 }

@@ -80,6 +80,7 @@ public class SettingsActivity extends Activity {
         root.addView(toggle("Panel on the left, map on the right", s.swapSides(), on -> { s.setSwapSides(on); applyRatioNow(); }));
 
         root.addView(heading("Music"));
+        root.addView(toggle("Swipe left or right on the song to change track", s.swipeTrack(), s::setSwipeTrack));
         root.addView(toggle("Auto-play the last player when the panel starts", s.autoPlayLast(), s::setAutoPlayLast));
 
         root.addView(heading("Driving"));

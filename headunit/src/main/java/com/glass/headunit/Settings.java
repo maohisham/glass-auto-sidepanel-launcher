@@ -90,6 +90,10 @@ final class Settings {
     boolean wizardDone() { return sp.getBoolean("wizardDone", false); }
     void setWizardDone(boolean v) { sp.edit().putBoolean("wizardDone", v).apply(); }
 
+    /** Swipe left or right on the song area to change track (on by default). */
+    boolean swipeTrack() { return sp.getBoolean("swipeTrack", true); }
+    void setSwipeTrack(boolean v) { sp.edit().putBoolean("swipeTrack", v).apply(); }
+
     /** Open the map app beside the panel when the panel starts (on by default); off launches only the panel. */
     boolean autoOpenMaps() { return sp.getBoolean("autoOpenMaps", true); }
     void setAutoOpenMaps(boolean v) { sp.edit().putBoolean("autoOpenMaps", v).apply(); }

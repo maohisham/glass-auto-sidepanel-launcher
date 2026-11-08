@@ -8,6 +8,7 @@ import android.os.SystemClock;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -27,7 +28,7 @@ import java.util.List;
  */
 final class PanelView extends LinearLayout {
 
-    interface Controls { void play(); void pause(); void next(); void previous(); void toggleShuffle(); void toggleRepeat(); }
+    interface Controls { void play(); void pause(); void next(); void previous(); void toggleShuffle(); void toggleRepeat(); void seekTo(long ms); }
 
 
     private PanelMode mode = PanelMode.REGULAR;
@@ -52,6 +53,9 @@ final class PanelView extends LinearLayout {
     private View stripDivider;
     private TextView clockText, ampmText, dateText;
     private boolean clockOn = true;
+    private boolean swipeEnabled = true, swipeTracking, held;
+    private float downX, downY;
+    private long downAt, heldMs, releasedAt;
     private int clockMode = ClockText.FOLLOW;
     private String clockShown = "", dateShown = "";
     private LinearLayout headerBlock, topRow, stripBox, banners, nowBox, songRow, mediaRow, progRow, barBox, lyricList, idleBox;
@@ -642,6 +646,7 @@ final class PanelView extends LinearLayout {
         mediaRow.setVisibility(idle ? GONE : VISIBLE);
         // the bar keeps its room (INVISIBLE) when only shuffle or repeat is offered, so those stay at the two ends
         progRow.setVisibility(showShuffle || showRepeat || showProgress ? VISIBLE : GONE);
+        mediaBar.setSeekable(now.seekable && showProgress, this::onSeek);
         barBox.setVisibility(showProgress ? VISIBLE : INVISIBLE);
         if (idle) {
             title.setText("Nothing playing");
@@ -678,11 +683,84 @@ final class PanelView extends LinearLayout {
     /** The song's bar moves between updates: the position we were told plus the time since, while it plays. */
     private void bindProgress() {
         if (progRow.getVisibility() != VISIBLE || barBox.getVisibility() != VISIBLE) return;
-        long pos = MediaProgress.extrapolate(now.positionMs, nowReceivedAt, SystemClock.elapsedRealtime(), now.playing, now.durationMs);
+        if (mediaBar.isDragging()) return;                      // the finger owns the bar while it is down
+        long nowMs = SystemClock.elapsedRealtime();
+        long pos = MediaProgress.extrapolate(now.positionMs, nowReceivedAt, nowMs, now.playing, now.durationMs);
+        if (held) {
+            // just released: keep the dragged spot until the player reports it (or a couple of seconds pass)
+            if (SeekRule.holdDragged(releasedAt, nowMs) && !SeekRule.caughtUp(heldMs, pos)) pos = heldMs;
+            else held = false;
+        }
         mediaBar.setFraction(MediaProgress.fraction(pos, now.durationMs));
         elapsedText.setText(MediaProgress.format(pos));
         durationText.setText(MediaProgress.format(now.durationMs));
     }
+
+    /** A drag on the song's bar: the bar and the elapsed time follow the finger, and the player seeks on release. */
+    private void onSeek(float fraction, boolean done) {
+        long ms = SeekRule.positionMs(fraction, now.durationMs);
+        elapsedText.setText(MediaProgress.format(ms));
+        if (!done) return;
+        held = true;
+        heldMs = ms;
+        releasedAt = SystemClock.elapsedRealtime();
+        if (controls != null) controls.seekTo(ms);
+    }
+
+    /**
+     * Swipe to change track. Every touch is watched, and buttons, scrolling and the bar work as before. A touch that
+     * starts on plain text (the song, the radio card) is not taken by any child, and Android only sends the rest of a
+     * touch to a view that took its start: so onTouchEvent below takes it, or the end of the swipe would never arrive.
+     */
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent e) {
+        if (swipeEnabled && controls != null && now.pkg != null) {
+            switch (e.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    swipeTracking = inSwipeArea(e.getX(), e.getY());
+                    downX = e.getX(); downY = e.getY(); downAt = e.getEventTime();
+                    break;
+                case MotionEvent.ACTION_POINTER_DOWN:
+                    swipeTracking = false;                      // a second finger is a pinch or a mistake, not a swipe
+                    break;
+                case MotionEvent.ACTION_UP:
+                    if (swipeTracking) {
+                        int r = SwipeRule.classify(e.getX() - downX, e.getY() - downY, e.getEventTime() - downAt, getResources().getDisplayMetrics().density);
+                        if (Math.abs(e.getX() - downX) > 60) Spike.log("swipe: dx " + Math.round(e.getX() - downX) + " dy " + Math.round(e.getY() - downY) + " in " + (e.getEventTime() - downAt) + " ms -> " + (r == SwipeRule.NEXT ? "next" : r == SwipeRule.PREVIOUS ? "previous" : "nothing"));
+                        if (r == SwipeRule.NEXT) controls.next();
+                        else if (r == SwipeRule.PREVIOUS) controls.previous();
+                    }
+                    swipeTracking = false;
+                    break;
+                case MotionEvent.ACTION_CANCEL:
+                    swipeTracking = false;
+                    break;
+                default:
+                    break;
+            }
+        }
+        return super.dispatchTouchEvent(e);
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent e) { return swipeTracking || super.onTouchEvent(e); }
+
+    /** The song area (or the radio card) and everything below it, but not the song's own bar or any top button. */
+    private boolean inSwipeArea(float x, float y) {
+        View top = ControlsPolicy.isRadio(now.pkg) ? radioArea : songRow;
+        if (top == null || top.getVisibility() != VISIBLE) return false;
+        android.graphics.Rect r = new android.graphics.Rect(0, 0, top.getWidth(), top.getHeight());
+        try { offsetDescendantRectToMyCoords(top, r); } catch (IllegalArgumentException ex) { return false; }
+        if (y < r.top) return false;
+        if (progRow.getVisibility() == VISIBLE && mediaBar.isSeekable()) {
+            android.graphics.Rect b = new android.graphics.Rect(0, 0, mediaBar.getWidth(), mediaBar.getHeight());
+            try { offsetDescendantRectToMyCoords(mediaBar, b); } catch (IllegalArgumentException ex) { return true; }
+            if (b.contains(Math.round(x), Math.round(y))) return false;
+        }
+        return true;
+    }
+
+    void setSwipeEnabled(boolean on) { swipeEnabled = on; }
 
     /** Decides what fills the space under the controls: lyrics, the song large, or the prayer table when nothing plays. */
     private void bindLyricsArea() {
