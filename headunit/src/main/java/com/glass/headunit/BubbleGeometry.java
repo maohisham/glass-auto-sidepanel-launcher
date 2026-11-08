@@ -8,8 +8,8 @@ final class BubbleGeometry {
     /** {x, y} of the bubble's top-left corner: inside the panel's half so it does not cover Google Maps. mapShare is the effective share. */
     static int[] start(int screenW, int screenH, float mapShare, boolean swapSides, int size, int margin) {
         int x = swapSides ? margin : screenW - size - margin;
-        int y = Math.round(screenH * 0.55f);
-        return new int[]{x, Math.min(y, screenH - size - margin)};
+        int y = screenH - (2 * size + margin) - margin;     // at the bottom, clear of the song controls (see startIn)
+        return new int[]{x, Math.max(y, margin)};
     }
 
     /** {left, top, width, height} of the picker overlay: exactly the panel's half. */
@@ -23,11 +23,16 @@ final class BubbleGeometry {
     /** {left, top, width, height} of the picker overlay when the panel's real window is known: exactly that window. */
     static int[] pickerAt(int[] panel) { return new int[]{panel[0], panel[1], panel[2], panel[3]}; }
 
-    /** {x, y} of the bubble inside the panel's real window {left, top, width, height}: its inner right edge, 55% down. */
+    /**
+     * {x, y} of the top of the bubbles inside the panel's real window {left, top, width, height}: its inner right
+     * edge, at the bottom, with room for the media and apps bubbles. The song controls sit a fixed distance from the
+     * top, so measuring from the bottom (not as a share of the height) keeps the bubbles from landing on previous
+     * and next on a screen of the wrong height: a tap meant for them would hit a bubble instead.
+     */
     static int[] startIn(int[] panel, int size, int margin) {
         int x = panel[0] + panel[2] - size - margin;
-        int y = panel[1] + Math.round(panel[3] * 0.55f);
-        y = Math.min(y, panel[1] + panel[3] - size - margin);
+        int y = panel[1] + panel[3] - (2 * size + margin) - margin;
+        y = Math.max(y, panel[1] + margin);
         return new int[]{x, y};
     }
 

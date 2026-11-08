@@ -48,17 +48,18 @@ public class BubbleGeometryTest {
 
     @Test
     public void theBubbleStartsInsideTheRealPanelWindow() {
-        // panel on the left, 1000 px wide, 1250 tall: the bubble sits at its inner right edge, 55% down
+        // panel on the left, 1000 px wide, 1250 tall: the bubbles sit at its inner right edge, at the bottom
+        // (room for the media and apps bubbles: two buttons, one gap and a margin under them)
         int[] xy = BubbleGeometry.startIn(new int[]{0, 0, 1000, 1250}, 150, 24);
         assertEquals(826, xy[0]);
-        assertEquals(688, xy[1]);
+        assertEquals(902, xy[1]);
     }
 
     @Test
     public void theBubbleStaysInsideAShortPanelWindow() {
         int[] xy = BubbleGeometry.startIn(new int[]{1000, 100, 1000, 300}, 150, 24);
         assertEquals(1826, xy[0]);
-        assertEquals(100 + 300 - 150 - 24, xy[1]);
+        assertEquals(100 + 24, xy[1]);   // never above the panel's top margin
     }
 
     @Test
@@ -73,5 +74,17 @@ public class BubbleGeometryTest {
         int[] p = BubbleGeometry.toOverlayPoint(new int[]{2800, 1000}, new int[]{10, 92});
         assertEquals(2790, p[0]);
         assertEquals(908, p[1]);
+    }
+
+    @Test
+    public void theDefaultSpotNeverDependsOnTheScreenHeightSoItStaysBelowTheSongControls() {
+        // the song controls sit a fixed distance from the top; the bubbles are measured from the bottom,
+        // so a taller or shorter screen only changes how much lyrics room there is between them
+        int controlsBottom = 330;   // px, a stand-in for the song row's lower edge
+        for (int h : new int[]{720, 900, 1250, 1880}) {
+            int[] xy = BubbleGeometry.startIn(new int[]{0, 0, 600, h}, 100, 16);
+            assertEquals(h - 2 * 100 - 16 - 16, xy[1]);
+            if (h >= 720) assertEquals(true, xy[1] > controlsBottom);
+        }
     }
 }
