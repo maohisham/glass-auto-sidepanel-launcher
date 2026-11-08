@@ -23,7 +23,9 @@ public class SettingsActivity extends Activity {
     private Settings s;
     private TextView ratioText, zoneRow, checklist, homeStatus;
     private Switch homeToggle;
-    private LinearLayout checklistBox, mapChoiceBox;
+    private LinearLayout checklistBox, mapChoiceBox, carBox;
+    private static final int REQ_PICTURE = 4721;
+    private String pickingFor = "";
 
     @Override
     protected void onCreate(Bundle b) {
@@ -82,6 +84,11 @@ public class SettingsActivity extends Activity {
         root.addView(heading("Music"));
         root.addView(toggle("Swipe left or right on the song to change track", s.swipeTrack(), s::setSwipeTrack));
         root.addView(toggle("Auto-play the last player when the panel starts", s.autoPlayLast(), s::setAutoPlayLast));
+
+        root.addView(heading("Car"));
+        carBox = new LinearLayout(this);
+        carBox.setOrientation(LinearLayout.VERTICAL);
+        root.addView(carBox);
 
         root.addView(heading("Driving"));
         root.addView(toggle("Driving score and speed (uses the GPS while the panel is open)", s.driveScore(), s::setDriveScore));
@@ -143,6 +150,7 @@ public class SettingsActivity extends Activity {
         showRatio();
         showHome();
         buildMapChoice();
+        buildCar();
         zoneRow.setText(s.manualZone().isEmpty() ? "Automatic: follows the GPS" : "Manual: " + s.manualZone());
         buildChecklist();
         BubbleService.apply(this); // picks up a permission granted while Settings was away
@@ -152,6 +160,80 @@ public class SettingsActivity extends Activity {
     private void askOverlayIfNeeded(boolean on) {
         if (on && !android.provider.Settings.canDrawOverlays(this)) {
             Intents.safeStart(this, new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:" + getPackageName())), "display over other apps");
+        }
+    }
+
+    /** The car choice: which car the driving score is for, a preview of its card, the real fuel average and the picture. */
+    private void buildCar() {
+        carBox.removeAllViews();
+        final String current = s.car();
+        String[] labels = new String[CarProfile.CHOICES.length];
+        int selected = 0;
+        for (int i = 0; i < labels.length; i++) {
+            labels[i] = CarProfile.choiceLabel(CarProfile.CHOICES[i]);
+            if (CarProfile.CHOICES[i].equals(current)) selected = i;
+        }
+        carBox.addView(choice(labels, selected, i -> {
+            s.setCar(CarProfile.CHOICES[i]);
+            DriveTrip.configure(s);          // another car ends the current trip
+            buildCar();
+        }, true));
+        final CarProfile p = CarProfile.byId(current);
+        if (p == null) {
+            carBox.addView(note("The generic score: it judges speed only. Choose a car for a fuel estimate and its own speed band."));
+            return;
+        }
+        LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        cardLp.topMargin = 16;
+        carBox.addView(new CarCardView(this, true, p, CarPicture.load(this, p.id)), cardLp);
+
+        carBox.addView(note("Your real fuel average in L/100 km (optional). It corrects the estimate to your own car. Leave it empty to use the claimed figure plus 25%."));
+        final android.widget.EditText real = new android.widget.EditText(this);
+        real.setHint("e.g. " + String.format(java.util.Locale.US, "%.1f", p.claimedLPer100 * Calibration.UPLIFT));
+        real.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        real.setSingleLine();
+        float saved = s.realAverage(p.id);
+        if (saved > 0) real.setText(String.format(java.util.Locale.US, "%.1f", saved));
+        real.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence a, int b, int c, int d) { }
+            @Override public void onTextChanged(CharSequence a, int b, int c, int d) { }
+            @Override public void afterTextChanged(android.text.Editable e) {
+                float v = 0f;
+                try { v = Float.parseFloat(e.toString().trim()); } catch (NumberFormatException ignored) { }
+                s.setRealAverage(p.id, v);
+                DriveTrip.configure(s);
+            }
+        });
+        carBox.addView(real);
+
+        carBox.addView(button("Use my own picture", () -> pickPicture(p.id)));
+        if (CarPicture.has(this, p.id)) {
+            carBox.addView(button("Remove my picture (back to the drawn car)", () -> { CarPicture.remove(this, p.id); buildCar(); }));
+        }
+        carBox.addView(note("Fuel figures are estimates from the GPS speed, not measurements. Changing the car ends the current trip."));
+    }
+
+    private TextView note(String t) {
+        TextView v = new TextView(this);
+        v.setText(t);
+        v.setTextSize(13f);
+        v.setPadding(0, 12, 0, 4);
+        return v;
+    }
+
+    /** Opens the unit's photo picker; the chosen picture is copied into the app and cropped to the card's shape. */
+    private void pickPicture(String carId) {
+        pickingFor = carId;
+        Intent i;
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            i = new Intent(android.provider.MediaStore.ACTION_PICK_IMAGES);
+        } else {
+            i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*");
+        }
+        try { startActivityForResult(i, REQ_PICTURE); }
+        catch (Exception e) {
+            Spike.log("car picture: no picker on this unit (" + e.getClass().getSimpleName() + ")");
+            android.widget.Toast.makeText(this, "This unit has no photo picker. Use the drawn car.", android.widget.Toast.LENGTH_LONG).show();
         }
     }
 
@@ -167,6 +249,17 @@ public class SettingsActivity extends Activity {
     protected void onActivityResult(int code, int result, android.content.Intent data) {
         super.onActivityResult(code, result, data);
         if (code == HomeLauncher.REQUEST_CODE) showHome();
+        if (code == REQ_PICTURE && result == RESULT_OK && data != null && data.getData() != null && !pickingFor.isEmpty()) {
+            final android.net.Uri uri = data.getData();
+            final String carId = pickingFor;
+            new Thread(() -> {
+                boolean ok = CarPicture.saveFrom(this, carId, uri);
+                runOnUiThread(() -> {
+                    android.widget.Toast.makeText(this, ok ? "Picture saved" : "Could not read that picture", android.widget.Toast.LENGTH_SHORT).show();
+                    buildCar();
+                });
+            }, "car-picture").start();
+        }
     }
 
     /** When the screen is already split, moves the divider to the new ratio at once (needs the window helper). */

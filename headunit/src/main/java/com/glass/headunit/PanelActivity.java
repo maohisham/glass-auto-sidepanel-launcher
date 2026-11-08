@@ -229,6 +229,7 @@ public class PanelActivity extends Activity {
         applyStyle(getResources().getConfiguration());
         handler.post(tick);
         if (!demo) BubbleService.apply(this);
+        DriveTrip.configure(Settings.of(this));   // the trip is for the car chosen in Settings
         panel.setScoreEnabled(Settings.of(this).driveScore());
         lastSpeedAt = 0;
         panel.showSpeed(0f, false);

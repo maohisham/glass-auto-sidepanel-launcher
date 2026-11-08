@@ -17,6 +17,8 @@ final class DriveScreen extends LinearLayout {
     private final int textSize;
     private final PanelMode mode;
     private final LinearLayout body;
+    private CarCardView card;
+    private String cardCar = "";
 
     DriveScreen(Context ctx, boolean dark, int textSize, PanelMode mode, Runnable onClose) {
         super(ctx);
@@ -69,6 +71,7 @@ final class DriveScreen extends LinearLayout {
         int fg = PanelStyle.fg(dark), dim = PanelStyle.dim(dark);
         EcoScore trip = DriveTrip.trip();
         body.removeAllViews();
+        addCarCard(ctx);
         if (!trip.isTripActive()) {
             body.addView(text("--", 44, true, dim), gap(16));
             body.addView(text("Drive to start scoring", 17, true, fg), gap(4));
@@ -77,6 +80,7 @@ final class DriveScreen extends LinearLayout {
         }
         EcoScore.Stats s = trip.calculate(System.currentTimeMillis());
         int color = PanelStyle.scoreColor(s.score);
+        if (card != null) card.setEstimate(s.estLPer100);
 
         LinearLayout big = new LinearLayout(ctx);
         big.setOrientation(HORIZONTAL);
@@ -91,6 +95,10 @@ final class DriveScreen extends LinearLayout {
 
         body.addView(text("Trip", 16, true, fg), gap(18));
         body.addView(row("Distance", String.format(Locale.US, "%.1f km", s.distanceKm)), gap(6));
+        if (s.hasCar) {
+            body.addView(row("Estimated fuel", String.format(Locale.US, "%.2f L", s.estFuelL)), gap(6));
+            body.addView(row("Fuel use (estimate)", s.estLPer100 > 0 ? String.format(Locale.US, "%.1f L/100 km", s.estLPer100) : "--"), gap(6));
+        }
         body.addView(row("Duration", EcoScore.duration(s.durationSec)), gap(6));
         body.addView(row("Idle", EcoScore.duration(s.idleSec) + String.format(Locale.US, "  (%.0f%%)", s.idlePct)), gap(6));
         body.addView(row("Average speed", String.format(Locale.US, "%.0f km/h", s.avgSpeedKmh)), gap(6));
@@ -99,7 +107,7 @@ final class DriveScreen extends LinearLayout {
         body.addView(text("Score breakdown", 16, true, fg), gap(18));
         body.addView(bar("Speed zone  35%", s.zoneScore, 0xFF66DD88), gap(8));
         body.addView(bar("Smoothness  25%", s.smoothScore, 0xFF66AAFF), gap(8));
-        body.addView(bar("Average speed  20%", s.effScore, 0xFFFFCC44), gap(8));
+        body.addView(bar((s.hasCar ? "Fuel use  20%" : "Average speed  20%"), s.effScore, 0xFFFFCC44), gap(8));
         body.addView(bar("Idling  15%", s.idleScore, 0xFFFF9944), gap(8));
         body.addView(bar("Speed cap  5%", s.bonusScore, 0xFFCC88FF), gap(8));
 
@@ -109,6 +117,19 @@ final class DriveScreen extends LinearLayout {
             body.addView(text(tip, 14, false, dim), gap(4));
         }
         body.addView(Glass.textButton(ctx, "Reset trip", dark, () -> { trip.reset(); refresh(); }), gap(18));
+    }
+
+    /** The car card at the top, when a car is chosen in Settings; the picture is read again only when the car changes. */
+    private void addCarCard(Context ctx) {
+        Settings st = Settings.of(ctx);
+        CarProfile p = CarProfile.byId(st.car());
+        if (p == null) { card = null; cardCar = ""; return; }
+        if (card == null || !p.id.equals(cardCar)) {
+            card = new CarCardView(ctx, dark, p, CarPicture.load(ctx, p.id));
+            cardCar = p.id;
+        }
+        if (card.getParent() != null) ((android.view.ViewGroup) card.getParent()).removeView(card);
+        body.addView(card, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
     }
 
     private LinearLayout row(String label, String value) {
