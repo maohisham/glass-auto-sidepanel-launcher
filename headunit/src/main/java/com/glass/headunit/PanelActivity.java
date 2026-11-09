@@ -69,19 +69,9 @@ public class PanelActivity extends Activity {
         if (panel.getWidth() > 0) PanelBounds.set(at[0], at[1], panel.getWidth(), panel.getHeight());
     }
 
-    /** The panel that is open right now, so a Home press can reuse it instead of stacking a second one. */
-    private static PanelActivity live;
-
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
-        if (HomeLaunch.isDuplicate(getIntent().hasCategory(android.content.Intent.CATEGORY_HOME), live != null && !live.isFinishing())) {
-            Spike.log("home: the panel is already open, bringing it forward");
-            finish();
-            overridePendingTransition(0, 0);
-            return;
-        }
-        live = this;
         demo = getIntent().getBooleanExtra("demo", false);
         PrayerSky.demoName = demo ? getIntent().getStringExtra("sky") : null;   // --es sky Zohor shows that prayer's look
         freshStart = b == null;
@@ -305,12 +295,6 @@ public class PanelActivity extends Activity {
         if (speed != null) { speed.stop(); speed = null; }
         if (follower != null) { follower.stop(); follower = null; }
         if (controller != null) { controller.stop(); controller = null; }
-    }
-
-    @Override
-    protected void onDestroy() {
-        if (live == this) live = null;
-        super.onDestroy();
     }
 
     // ---- demo data ----

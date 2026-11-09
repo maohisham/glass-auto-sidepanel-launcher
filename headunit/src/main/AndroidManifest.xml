@@ -51,10 +51,19 @@
             </intent-filter>
         </activity>
 
+        <!-- What the Home button starts: it has no screen, it starts the panel as a normal app and closes. Keeping the panel out of
+             the Home entry keeps it in Recents and lets the unit's split feature pick it. -->
+        <activity
+            android:name=".HomeActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <!-- The Home entry: off until the user turns on "Home launcher" in Settings, so this app cannot be picked as home by accident. -->
         <activity-alias
             android:name=".HomeAlias"
-            android:targetActivity=".PanelActivity"
+            android:targetActivity=".HomeActivity"
             android:enabled="false"
             android:exported="true"
             android:label="@string/app_name">
