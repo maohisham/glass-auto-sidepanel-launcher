@@ -54,42 +54,87 @@ public class SplitHelperService extends AccessibilityService {
     /** Runs the layout after a delay, on the service's own handler (the service stays alive, a receiver's process may not). */
     void startLayoutAfter(long ms) { handler.postDelayed(this::startLayout, ms); }
 
-    /** Panel and the map app side by side at the user's ratio. Does nothing if it already ran in the last minute. */
-    void startLayout() {
+    /**
+     * Panel and the map app side by side at the user's ratio, with the map on the side the user asked for. Does nothing
+     * (and returns false) if it already ran in the last minute. The route depends on the wanted side: see SplitPlan.firstRoute.
+     */
+    boolean startLayout() {
         long now = SystemClock.elapsedRealtime();
-        if (layoutStartedAt != 0 && now - layoutStartedAt < 60_000L) { Spike.log("helper: layout already started, skipping"); return; }
+        if (layoutStartedAt != 0 && now - layoutStartedAt < 60_000L) { Spike.log("helper: layout already started, skipping"); return false; }
         layoutStartedAt = now;
         final Settings s = Settings.of(this);
         String map = MapAppRepo.selected(this);
         if (!MapsAutoOpen.shouldOpen(s.autoOpenMaps(), map != null, true, false)) {
             Spike.log("helper: " + (map == null ? "no map app is installed" : "opening the map app is switched off in Settings") + "; opening only the panel");
             openPanel(false);
-            return;
+            return true;
         }
-        if (dividerBounds() != null) { Spike.log("helper: split-screen already on"); settleThenMove(-1f, 0, 0); return; }
-        // First choice: the panel opens the map app beside itself, which makes the system split the screen. This works on
-        // units that refuse the toggle action below. If no split appears, fall back to the toggle.
-        Spike.log("helper: opening the panel, which opens Google Maps beside itself");
+        if (dividerBounds() != null) { Spike.log("helper: split-screen already on"); settleThenMove(-1f, 0, 0); handler.postDelayed(() -> logLayout("already split"), 3000); return true; }
+        if (SplitPlan.firstRoute(s.swapSides()) == SplitPlan.ROUTE_MAP_FIRST) {
+            Spike.log("helper: the map should be on the first side, so starting with the map app and the split-screen action");
+            toggleLayout(s, true);
+        } else {
+            panelRoute(s);
+        }
+        return true;
+    }
+
+    /** The panel opens the map beside itself, which makes the system split the screen (the map lands on the unit's own side). */
+    private void panelRoute(final Settings s) {
+        Spike.log("helper: opening the panel, which opens the map app beside itself");
         Intent beside = getPackageManager().getLaunchIntentForPackage(getPackageName());
         if (beside != null) {
             beside.putExtra(PanelActivity.EXTRA_BESIDE, true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             try { startActivity(beside); } catch (Exception e) { Spike.log("helper: could not open the panel (" + e.getClass().getSimpleName() + ")"); }
         }
-        handler.postDelayed(() -> { if (dividerBounds() == null) toggleLayout(s); }, 6000);
+        handler.postDelayed(() -> {
+            if (dividerBounds() == null) toggleLayout(s, false);
+            else logLayout("panel opens map");
+        }, 6000);
     }
 
-    /** The older route: put one app in front, press the system's split-screen action, then open the other beside it. */
-    private void toggleLayout(final Settings s) {
+    /**
+     * Put one app in front, press the system's split-screen action, then open the other beside it. The first app takes
+     * the first side. With fallBack, a unit that refuses the action (or shows no split) gets the panel route instead.
+     */
+    private void toggleLayout(final Settings s, final boolean fallBack) {
         final boolean panelFirst = "panel".equals(SplitPlan.firstApp(s.swapSides()));
+        final String route = (panelFirst ? "panel first" : "map first") + ", split action";
         Spike.log("helper: starting with " + (panelFirst ? "the panel" : "the map app") + " in the first slot");
         if (panelFirst) openPanel(false); else openMaps(false);
         handler.postDelayed(() -> {
-            if (!toggleSplit()) { Spike.log("helper: the unit refused the split-screen action; leaving the first app full-screen"); return; }
+            if (!toggleSplit()) {
+                Spike.log("helper: the unit refused the split-screen action" + (fallBack ? "; using the panel route instead" : "; leaving the first app full-screen"));
+                if (fallBack) panelRoute(s);
+                return;
+            }
             handler.postDelayed(() -> {
-                if (panelFirst) openMaps(true); else openPanel(true);
+                if (panelFirst) openMaps(true); else openPanelBeside();
                 settleThenMove(-1f, 0, 0);
+                handler.postDelayed(() -> {
+                    if (dividerBounds() == null && fallBack) { Spike.log("helper: no split after the split action; using the panel route instead"); panelRoute(s); }
+                    else logLayout(route);
+                }, 7000);
             }, 1200);
         }, 1500);
+    }
+
+    /** Opens the panel beside the other app. The map is already in place, so the panel is told not to open it again. */
+    private void openPanelBeside() {
+        Spike.log("launch: the window helper opens the panel beside the map app");
+        Intent i = getPackageManager().getLaunchIntentForPackage(getPackageName());
+        if (i == null) return;
+        i.putExtra(PanelActivity.EXTRA_MAP_READY, true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT);
+        try { startActivity(i); } catch (Exception e) { Spike.log("helper: could not open the panel beside the map (" + e.getClass().getSimpleName() + ")"); }
+    }
+
+    /** Writes where the two apps ended up and whether that is what was asked for, plus every window the helper can see. */
+    private void logLayout(String route) {
+        Settings s = Settings.of(this);
+        Rect d = dividerBounds();
+        Boolean mapFirst = d == null ? null : mapIsFirst(d, screen().width() >= screen().height());
+        Spike.log(SplitPlan.layoutLine(d != null, mapFirst, SplitPlan.wantedMapFirst(s.swapSides()), route));
+        Spike.log("layout: windows\n" + describeWindows());
     }
 
     /** Waits (up to about 5 s) for a split to appear, then moves the divider to the user's ratio. Call after opening Maps beside the panel. */
@@ -207,7 +252,9 @@ public class SplitHelperService extends AccessibilityService {
             for (AccessibilityWindowInfo w : getWindows()) {
                 Rect r = new Rect();
                 w.getBoundsInScreen(r);
-                sb.append("type ").append(w.getType()).append(" ").append(r.toShortString()).append(w.isActive() ? " active" : "").append('\n');
+                android.view.accessibility.AccessibilityNodeInfo root = w.getRoot();
+                String pkg = root == null || root.getPackageName() == null ? "" : " " + root.getPackageName();
+                sb.append("type ").append(w.getType()).append(" ").append(r.toShortString()).append(pkg).append(w.isActive() ? " active" : "").append('\n');
             }
         } catch (Exception e) { sb.append("error ").append(e.getMessage()); }
         return sb.toString();

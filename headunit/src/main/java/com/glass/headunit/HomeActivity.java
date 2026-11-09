@@ -15,6 +15,16 @@ public class HomeActivity extends Activity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        Settings s = Settings.of(this);
+        SplitHelperService helper = SplitHelperService.get();
+        if (HomeStart.useHelper(helper != null, SplitPlan.wantedMapFirst(s.swapSides()), s.autoOpenMaps(), MapAppRepo.selected(this) != null)
+                && helper.startLayout()) {
+            // the map goes first and the panel opens beside it, so the map lands on the side the user asked for
+            Spike.log("home: the Home button started the thin starter, and the window helper lays the screen out");
+            finish();
+            overridePendingTransition(0, 0);
+            return;
+        }
         Spike.log("home: the Home button started the thin starter, opening the panel as a normal app");
         try {
             startActivity(new Intent(this, PanelActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));

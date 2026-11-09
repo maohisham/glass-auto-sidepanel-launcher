@@ -80,4 +80,55 @@ public class SplitPlanTest {
         assertTrue(SplitPlan.needsDrag(0.50f, 0.70f));
         assertTrue(SplitPlan.needsDrag(0.50f, 0.30f));
     }
+
+    // ---- which route, and what to record ----
+
+    @Test
+    public void theMapIsStartedFirstWhenItShouldBeOnTheFirstSide() {
+        assertEquals(SplitPlan.ROUTE_MAP_FIRST, SplitPlan.firstRoute(false));      // panel on the right (the default)
+        assertEquals(SplitPlan.ROUTE_PANEL_FIRST, SplitPlan.firstRoute(true));     // panel on the left
+    }
+
+    @Test
+    public void theWantedOrderIsTheOppositeOfTheSwapSetting() {
+        assertTrue(SplitPlan.wantedMapFirst(false));
+        assertFalse(SplitPlan.wantedMapFirst(true));
+    }
+
+    @Test
+    public void theLogSaysWhenThereIsNoSplit() {
+        assertEquals("layout: no split appeared (route: map first, split action)", SplitPlan.layoutLine(false, null, true, "map first, split action"));
+    }
+
+    @Test
+    public void theLogSaysWhenTheMapWindowCouldNotBeFound() {
+        assertEquals("layout: the split is on but the map window was not found (route: panel opens map)", SplitPlan.layoutLine(true, null, true, "panel opens map"));
+    }
+
+    @Test
+    public void theLogSaysWhetherTheOrderIsWhatWasAskedFor() {
+        assertEquals("layout: map first, panel last, as wanted (route: map first, split action)",
+                SplitPlan.layoutLine(true, Boolean.TRUE, true, "map first, split action"));
+        assertEquals("layout: map last, panel first, NOT as wanted (route: panel opens map)",
+                SplitPlan.layoutLine(true, Boolean.FALSE, true, "panel opens map"));
+        assertEquals("layout: map last, panel first, as wanted (route: panel opens map)",
+                SplitPlan.layoutLine(true, Boolean.FALSE, false, "panel opens map"));
+    }
+
+    @Test
+    public void aPanelFillingTheScreenIsNotInASplit() {
+        assertEquals(SplitPlan.POS_FULL, SplitPlan.panelPosition(0, 0, 3008, 1880, 3008, 1880));
+    }
+
+    @Test
+    public void aLandscapePanelOnTheRightIsOnTheLastSide() {
+        assertEquals(SplitPlan.POS_LAST, SplitPlan.panelPosition(1516, 0, 1492, 1880, 3008, 1880));
+        assertEquals(SplitPlan.POS_FIRST, SplitPlan.panelPosition(0, 0, 1492, 1880, 3008, 1880));
+    }
+
+    @Test
+    public void aPortraitPanelAtTheBottomIsOnTheLastSide() {
+        assertEquals(SplitPlan.POS_LAST, SplitPlan.panelPosition(0, 1516, 1880, 1492, 1880, 3008));
+        assertEquals(SplitPlan.POS_FIRST, SplitPlan.panelPosition(0, 0, 1880, 1492, 1880, 3008));
+    }
 }

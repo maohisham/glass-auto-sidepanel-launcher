@@ -17,6 +17,8 @@ public class PanelActivity extends Activity {
 
     /** Set by the window helper at boot: open the map app beside this panel as soon as it is up. */
     static final String EXTRA_BESIDE = "beside";
+    /** Set by the window helper when it has already put the map in place and opened the panel beside it: do not open the map again. */
+    static final String EXTRA_MAP_READY = "map_ready";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private PanelView panel;
@@ -101,6 +103,16 @@ public class PanelActivity extends Activity {
         panel.setSwipeEnabled(s.swipeTrack());
         panel.setOnApps(s.homeLauncher() ? this::showApps : null);
         getWindow().getDecorView().setBackgroundColor(PanelStyle.bg(dark));
+    }
+
+    /** Writes where the panel's own window is on the screen: the one place the layout can be read without the window helper. */
+    private void logOwnSide() {
+        int[] b = PanelBounds.get();
+        if (b == null) return;
+        android.graphics.Rect screen = getSystemService(android.view.WindowManager.class).getMaximumWindowMetrics().getBounds();
+        int pos = SplitPlan.panelPosition(b[0], b[1], b[2], b[3], screen.width(), screen.height());
+        Spike.log("layout: the panel is " + (pos == SplitPlan.POS_FULL ? "full screen" : pos == SplitPlan.POS_FIRST ? "on the first side (left or top)" : "on the last side (right or bottom)")
+                + ", the panel's wish is " + (Settings.of(this).swapSides() ? "first" : "last"));
     }
 
     private void showPicker() {
@@ -268,8 +280,12 @@ public class PanelActivity extends Activity {
         // open the map app beside the panel: when the window helper asked for it at boot, or on every fresh start of the panel
         boolean helperAsked = getIntent().getBooleanExtra(EXTRA_BESIDE, false);
         getIntent().removeExtra(EXTRA_BESIDE);
+        boolean mapReady = getIntent().getBooleanExtra(EXTRA_MAP_READY, false);
+        getIntent().removeExtra(EXTRA_MAP_READY);
         boolean wizard = WizardPlan.shouldAutoShow(Settings.of(this).wizardDone(), freshStart, demo);
-        boolean auto = !wizard && MapsAutoOpen.shouldOpen(Settings.of(this).autoOpenMaps(), panel.mapsInstalled(), freshStart, demo);
+        boolean auto = !wizard && MapsAutoOpen.shouldOpen(Settings.of(this).autoOpenMaps(), panel.mapsInstalled(), freshStart, demo, mapReady);
+        if (mapReady) Spike.log("the window helper already placed the map, so the panel does not open it");
+        if (!demo && freshStart) handler.postDelayed(this::logOwnSide, 6000);
         freshStart = false;
         if (wizard) {   // first run: set things up before anything opens beside the panel
             Spike.log("wizard: first start, opening the setup wizard");

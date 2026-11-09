@@ -79,7 +79,7 @@ public class SettingsActivity extends Activity {
         root.addView(heading("Theme"));
         root.addView(choice(new String[]{"Follow the unit", "Light", "Dark"}, s.theme(), s::setTheme));
 
-        root.addView(toggle("Panel on the left, map on the right", s.swapSides(), on -> { s.setSwapSides(on); applyRatioNow(); }));
+        root.addView(toggle("Panel on the left, map on the right (needs the window helper to put the map on the other side)", s.swapSides(), on -> { s.setSwapSides(on); applyRatioNow(); }));
 
         root.addView(heading("Music"));
         root.addView(toggle("Swipe left or right on the song to change track", s.swipeTrack(), s::setSwipeTrack));
