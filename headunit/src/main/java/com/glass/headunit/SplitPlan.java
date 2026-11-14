@@ -58,4 +58,16 @@ final class SplitPlan {
 
     /** Whether the divider is far enough from where it should be to be worth dragging (units snap to their own positions). */
     static boolean needsDrag(float currentFraction, float targetFraction) { return Math.abs(currentFraction - targetFraction) > 0.04f; }
+
+    /**
+     * True when the panel, about to open the map beside itself on a fresh start, should hand the layout to the window
+     * helper instead: opening it beside the panel puts the map on the last side, which is wrong when it should be first.
+     * Not when the helper itself started the panel (it asked for the map, or the map is already in place).
+     */
+    static boolean panelHandsOff(boolean helperRunning, boolean wantedMapFirst, boolean helperAsked, boolean mapReady) {
+        return helperRunning && wantedMapFirst && !helperAsked && !mapReady;
+    }
+
+    /** True when the screen is split but the map is on the other side from the wanted one (null: the map window was not found). */
+    static boolean wrongSide(Boolean mapFirst, boolean wantedMapFirst) { return mapFirst != null && mapFirst != wantedMapFirst; }
 }

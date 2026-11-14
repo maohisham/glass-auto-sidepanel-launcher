@@ -9,16 +9,40 @@ import android.os.SystemClock;
 import android.view.KeyEvent;
 
 /**
- * Resumes the last player once per start of the app's process: after a reboot that is the first time the media
- * listener is connected (the system does that by itself at start-up, panel open or not), otherwise the first time the
- * panel starts. It presses Play in the last player; if that player has not come back a few seconds later, it presses
- * Play through the system, which after a reboot goes to the app that played last.
+ * Resumes the last player once per start: after a reboot that is the first time the media listener is connected (the
+ * system does that by itself at start-up, panel open or not); after the unit wakes from sleep (getting back into the
+ * car, when the unit sleeps instead of switching off) it is the screen coming back on; otherwise the first panel start.
+ * It presses Play in the last player; if that player has not come back a few seconds later, it presses Play through the
+ * system, which after a reboot goes to the app that played last.
  */
 final class AutoPlay {
 
     private static final Handler H = new Handler(Looper.getMainLooper());
     private static final long CHECK_MS = 8_000;
     private static boolean pending, attempted;
+    private static long screenOffAt;   // elapsedRealtime when the screen went off, 0 while it is on
+
+    /** Starts watching the screen, so a wake from sleep counts as a new start. Call once per process. */
+    static void watchScreen(Context ctx) {
+        android.content.IntentFilter f = new android.content.IntentFilter(android.content.Intent.ACTION_SCREEN_OFF);
+        f.addAction(android.content.Intent.ACTION_SCREEN_ON);
+        ctx.getApplicationContext().registerReceiver(new android.content.BroadcastReceiver() {
+            @Override public void onReceive(Context c, android.content.Intent i) {
+                long now = SystemClock.elapsedRealtime();
+                if (android.content.Intent.ACTION_SCREEN_OFF.equals(i.getAction())) { screenOffAt = now; return; }
+                boolean wake = AutoPlayPolicy.isWake(screenOffAt, now);
+                Spike.log("screen on" + (screenOffAt > 0 ? " after " + (now - screenOffAt) / 1000 + " s off" : "") + (wake ? ": a wake from sleep" : ""));
+                screenOffAt = 0;
+                if (wake) rearm(c, "the unit woke from sleep");
+            }
+        }, f);
+    }
+
+    /** Allows one more try (a new start) and schedules it. */
+    static synchronized void rearm(Context ctx, String from) {
+        attempted = false;
+        schedule(ctx, 6_000, from);
+    }
 
     private AutoPlay() { }
 

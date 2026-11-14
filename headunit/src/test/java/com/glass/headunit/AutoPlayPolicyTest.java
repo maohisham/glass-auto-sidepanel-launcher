@@ -33,4 +33,11 @@ public class AutoPlayPolicyTest {
     public void triesOnlyOncePerStart() {
         assertFalse(AutoPlayPolicy.shouldStart(true, "com.spotify.music", true, false, true));
     }
+
+    @Test
+    public void onlyASleepCountsAsAWake() {
+        assertTrue(AutoPlayPolicy.isWake(1_000L, 1_000L + 3 * 60_000L));     // off three minutes: back in the car
+        assertFalse(AutoPlayPolicy.isWake(1_000L, 1_000L + 20_000L));        // a quick blank of the screen
+        assertFalse(AutoPlayPolicy.isWake(0L, 10 * 60_000L));                // never saw it go off
+    }
 }

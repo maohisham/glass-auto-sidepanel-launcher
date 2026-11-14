@@ -42,8 +42,8 @@ final class Settings {
     void setBubble(int x, int y) { sp.edit().putInt("bubbleX", x).putInt("bubbleY", y).apply(); }
     void resetBubble() { sp.edit().remove("bubbleX").remove("bubbleY").apply(); }
 
-    /** Resume the last player at start-up or when the panel opens, once per run of the app (off by default). */
-    boolean autoPlayLast() { return sp.getBoolean("autoPlayLast", false); }
+    /** Resume the last player at start-up, when the unit wakes from sleep, or when the panel opens (on by default). */
+    boolean autoPlayLast() { return sp.getBoolean("autoPlayLast", true); }
     void setAutoPlayLast(boolean v) { sp.edit().putBoolean("autoPlayLast", v).apply(); }
 
     /** The package of the last player that was actually playing, or empty. */

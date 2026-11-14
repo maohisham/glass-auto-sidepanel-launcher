@@ -271,6 +271,9 @@ final class PanelView extends LinearLayout {
         stripBox.setPadding(dp(4), dp(4), dp(4), dp(4));
         stripBox.setBackground(Glass.button(getContext(), dark, false, false, 14));
         weatherText = text(16, false, fg);
+        weatherText.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));   // as wide as its half, so the fit can be measured
+        // its width is set by the layout, not the text: when it changes, decide again whether the place needs its own line
+        weatherText.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> { if (r - l != or - ol) v.post(this::bindWeather); });
         prayerText = text(16, true, accent);
         // two tappable halves: the weather opens the forecast, the prayer opens the table
         weatherBox = tapArea("Open the weather", weatherText, () -> { if (onWeather != null) onWeather.run(); });
@@ -329,8 +332,8 @@ final class PanelView extends LinearLayout {
             stripBox.addView(prayerBox, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
             stripBox.addView(weatherBox, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
         } else {
-            // the weather takes only the room it needs; the prayer text gets the rest (it is the longer line at large text sizes)
-            stripBox.addView(weatherBox, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+            // weather and prayer share the width, so a long place name cannot squeeze the prayer time; the place drops to its own line
+            stripBox.addView(weatherBox, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
             stripBox.addView(prayerBox, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
         }
         headerBlock.addView(stripBox);
@@ -506,8 +509,7 @@ final class PanelView extends LinearLayout {
 
     private void bindTop() {
         bindClock();
-        weatherText.setText(weather == null ? "" : weather.emoji + " " + Math.round(weather.tempC) + "°C"
-                + (weather.city.isEmpty() ? "" : "  " + weather.city));
+        bindWeather();
         if (prayer == null) prayerText.setText("");
         else if (prayer.justStarted) prayerText.setText("● " + prayer.currentName + " time now");
         else {
@@ -519,6 +521,16 @@ final class PanelView extends LinearLayout {
             prayerText.setText(sp);
         }
         updateStrip();
+    }
+
+    /** Temperature and place on one line when they fit, else the place on the line below. */
+    private void bindWeather() {
+        if (weatherText == null) return;
+        if (weather == null) { weatherText.setText(""); return; }
+        String temp = weather.emoji + " " + Math.round(weather.tempC) + "°C";
+        int room = weatherText.getWidth() - weatherText.getPaddingLeft() - weatherText.getPaddingRight();
+        String text = WeatherLine.build(temp, weather.city, room, s -> weatherText.getPaint().measureText(s));
+        if (!text.contentEquals(weatherText.getText())) weatherText.setText(text);
     }
 
     /** The clock and date: redrawn only when the minute (or the date) changes. */

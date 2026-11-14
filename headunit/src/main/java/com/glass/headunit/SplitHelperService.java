@@ -69,7 +69,23 @@ public class SplitHelperService extends AccessibilityService {
             openPanel(false);
             return true;
         }
-        if (dividerBounds() != null) { Spike.log("helper: split-screen already on"); settleThenMove(-1f, 0, 0); handler.postDelayed(() -> logLayout("already split"), 3000); return true; }
+        Rect d = dividerBounds();
+        if (d != null) {
+            Boolean mapFirst = mapIsFirst(d, screen().width() >= screen().height());
+            if (SplitPlan.wrongSide(mapFirst, SplitPlan.wantedMapFirst(s.swapSides()))) {
+                // the split came up the other way round (the unit restored it, or the map was opened beside the panel): start it again
+                Spike.log("helper: split-screen is on with the map on the wrong side; leaving it and laying the screen out again");
+                toggleSplit();
+                handler.postDelayed(() -> {
+                    if (SplitPlan.firstRoute(s.swapSides()) == SplitPlan.ROUTE_MAP_FIRST) toggleLayout(s, true); else panelRoute(s);
+                }, 1500);
+                return true;
+            }
+            Spike.log("helper: split-screen already on");
+            settleThenMove(-1f, 0, 0);
+            handler.postDelayed(() -> logLayout("already split"), 3000);
+            return true;
+        }
         if (SplitPlan.firstRoute(s.swapSides()) == SplitPlan.ROUTE_MAP_FIRST) {
             Spike.log("helper: the map should be on the first side, so starting with the map app and the split-screen action");
             toggleLayout(s, true);

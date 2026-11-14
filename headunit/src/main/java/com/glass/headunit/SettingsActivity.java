@@ -83,7 +83,7 @@ public class SettingsActivity extends Activity {
 
         root.addView(heading("Music"));
         root.addView(toggle("Swipe left or right on the song to change track", s.swipeTrack(), s::setSwipeTrack));
-        root.addView(toggle("Auto-play the last player at start-up (after a reboot, or when the panel opens)", s.autoPlayLast(), s::setAutoPlayLast));
+        root.addView(toggle("Auto-play the last player when the unit starts or wakes up", s.autoPlayLast(), s::setAutoPlayLast));
 
         root.addView(heading("Car"));
         carBox = new LinearLayout(this);
@@ -93,7 +93,7 @@ public class SettingsActivity extends Activity {
         root.addView(heading("Driving"));
         root.addView(toggle("Driving score and speed (uses the GPS while the panel is open)", s.driveScore(), s::setDriveScore));
 
-        root.addView(toggle("Speed alert: beep once when over the limit", s.speedAlert(), s::setSpeedAlert));
+        root.addView(toggle("Speed alert: beep once when over the limit (while the panel is open, on the media volume)", s.speedAlert(), s::setSpeedAlert));
         final TextView limitText = new TextView(this);
         limitText.setText("Alert above " + s.speedLimit() + " km/h");
         root.addView(limitText);

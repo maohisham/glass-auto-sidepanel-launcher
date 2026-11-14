@@ -35,6 +35,7 @@ public class GlassApp extends Application {
             @Override public void onActivitySaveInstanceState(android.app.Activity a, android.os.Bundle b) { }
             @Override public void onActivityDestroyed(android.app.Activity a) { }
         });
+        AutoPlay.watchScreen(this);
         Spike.log("process started");
     }
 }

@@ -131,4 +131,21 @@ public class SplitPlanTest {
         assertEquals(SplitPlan.POS_LAST, SplitPlan.panelPosition(0, 1516, 1880, 1492, 1880, 3008));
         assertEquals(SplitPlan.POS_FIRST, SplitPlan.panelPosition(0, 0, 1880, 1492, 1880, 3008));
     }
+
+    @Test
+    public void panelHandsTheLayoutToTheHelperOnlyWhenTheMapShouldBeFirst() {
+        assertTrue(SplitPlan.panelHandsOff(true, true, false, false));
+        assertFalse(SplitPlan.panelHandsOff(false, true, false, false));   // no helper: nothing to hand to
+        assertFalse(SplitPlan.panelHandsOff(true, false, false, false));   // panel on the left: opening beside it is right
+        assertFalse(SplitPlan.panelHandsOff(true, true, true, false));     // the helper asked the panel to open the map
+        assertFalse(SplitPlan.panelHandsOff(true, true, false, true));     // the helper already placed the map
+    }
+
+    @Test
+    public void wrongSideOnlyWhenTheMapWindowWasFoundOnTheOtherSide() {
+        assertTrue(SplitPlan.wrongSide(false, true));
+        assertTrue(SplitPlan.wrongSide(true, false));
+        assertFalse(SplitPlan.wrongSide(true, true));
+        assertFalse(SplitPlan.wrongSide(null, true));
+    }
 }

@@ -244,12 +244,16 @@ public class PanelActivity extends Activity {
         follower.start();
         controller.start();
         AutoPlay.schedule(this, 5000, "panel started");   // once per process: a reboot also triggers it from the media listener
-        if (Settings.of(this).driveScore()) {
+        // the GPS speed feeds the driving score and the speed alert: either one is enough to listen
+        final boolean scoring = Settings.of(this).driveScore();
+        if (scoring || Settings.of(this).speedAlert()) {
             speed = new SpeedFollower(this, kmh -> {
                 long now = System.currentTimeMillis();
-                DriveTrip.trip().onSpeed(kmh, now);
-                lastSpeedAt = now;
-                panel.showSpeed(kmh, true);
+                if (scoring) {
+                    DriveTrip.trip().onSpeed(kmh, now);
+                    lastSpeedAt = now;
+                    panel.showSpeed(kmh, true);
+                }
                 Settings st = Settings.of(PanelActivity.this);
                 // beep once when the speed goes over the limit (see SpeedAlertPolicy for when it can sound again)
                 if (st.speedAlert() && alertPolicy.onSpeed(kmh, st.speedLimit())) {
@@ -274,7 +278,16 @@ public class PanelActivity extends Activity {
             startActivity(new android.content.Intent(this, WizardActivity.class));
             return;
         }
+        SplitHelperService helper = SplitHelperService.get();
+        if (auto && SplitPlan.panelHandsOff(helper != null, SplitPlan.wantedMapFirst(Settings.of(this).swapSides()), helperAsked, mapReady)) {
+            // opened beside the panel, the map would land on the last side: let the helper start the map first instead
+            Spike.log("panel start: the map should be on the first side, so the window helper lays the screen out");
+            if (!helper.startLayout()) Spike.log("panel start: the window helper is already laying the screen out");
+            return;
+        }
         if (helperAsked || auto) {
+            if (auto && !helperAsked && SplitPlan.wantedMapFirst(Settings.of(this).swapSides()))
+                Spike.log("panel start: the window helper is off, so the map opens beside the panel and the unit puts it on the last side");
             Spike.log("opening the map app beside the panel" + (helperAsked ? " (window helper)" : " (panel start)"));
             handler.postDelayed(() -> panel.openMaps(false), 800);
         }
