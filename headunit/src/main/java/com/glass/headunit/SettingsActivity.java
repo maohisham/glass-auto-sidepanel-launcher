@@ -83,7 +83,7 @@ public class SettingsActivity extends Activity {
 
         root.addView(heading("Music"));
         root.addView(toggle("Swipe left or right on the song to change track", s.swipeTrack(), s::setSwipeTrack));
-        root.addView(toggle("Auto-play the last player when the panel starts", s.autoPlayLast(), s::setAutoPlayLast));
+        root.addView(toggle("Auto-play the last player at start-up (after a reboot, or when the panel opens)", s.autoPlayLast(), s::setAutoPlayLast));
 
         root.addView(heading("Car"));
         carBox = new LinearLayout(this);

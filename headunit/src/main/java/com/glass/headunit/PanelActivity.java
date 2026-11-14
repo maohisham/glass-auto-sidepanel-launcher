@@ -35,7 +35,6 @@ public class PanelActivity extends Activity {
     private long lastSpeedAt;   // when the last GPS speed arrived (0 = none yet)
     private final SpeedAlertPolicy alertPolicy = new SpeedAlertPolicy();
     private SpeedAlert speedAlert;
-    private static boolean autoPlayScheduled;   // once per process (per panel start)
     private MediaFollower follower;
     private PanelController controller;
     private boolean demo;
@@ -52,6 +51,7 @@ public class PanelActivity extends Activity {
                 panel.showScore(trip.isTripActive() ? trip.calculate(System.currentTimeMillis()) : null);
                 if (driveScreen != null) driveScreen.refresh();
             }
+            if (!demo && tickCount % 30 == 0) DriveLog.save(PanelActivity.this, DriveTrip.trip());   // the running trip, into the drive log
             handler.postDelayed(this, 1000);
         }
     };
@@ -75,6 +75,7 @@ public class PanelActivity extends Activity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         demo = getIntent().getBooleanExtra("demo", false);
+        DriveLog.paused = demo;   // the made-up demo trip never goes into the real drive log
         PrayerSky.demoName = demo ? getIntent().getStringExtra("sky") : null;   // --es sky Zohor shows that prayer's look
         freshStart = b == null;
         panel = new PanelView(this);
@@ -137,26 +138,6 @@ public class PanelActivity extends Activity {
         appsGrid = null;
     }
 
-    /** Once per start: if the setting is on and nothing is playing after a few seconds, resume the last player. */
-    private void scheduleAutoPlay() {
-        if (autoPlayScheduled) return;
-        autoPlayScheduled = true;
-        final PlayerSwitcher switcher = new PlayerSwitcher(this, follower);
-        handler.postDelayed(() -> {
-            if (follower == null) return;
-            Settings s = Settings.of(this);
-            String pkg = s.lastPlayer();
-            boolean installed = false;
-            try { installed = !pkg.isEmpty() && getPackageManager().getApplicationInfo(pkg, 0).enabled; } catch (Exception ignored) { }
-            if (AutoPlayPolicy.shouldStart(s.autoPlayLast(), pkg, installed, follower.anyPlaying(), false)) {
-                Spike.log("auto-play: resuming " + pkg);
-                switcher.resume(pkg);
-            } else {
-                Spike.log("auto-play: not starting (setting " + (s.autoPlayLast() ? "on" : "off") + ", last player '" + pkg + "', playing " + follower.anyPlaying() + ")");
-            }
-        }, 5000);
-    }
-
     private void showWeather() {
         if (weatherScreen != null) return;
         Weather.Data w = panel.weather();
@@ -172,7 +153,8 @@ public class PanelActivity extends Activity {
 
     private void showDrive() {
         if (driveScreen != null) return;
-        driveScreen = new DriveScreen(this, panel.isDark(), panel.textSize(), panel.mode(), this::hideDrive);
+        driveScreen = new DriveScreen(this, panel.isDark(), panel.textSize(), panel.mode(),
+                demo ? DemoData::drives : () -> DriveLog.all(this), this::hideDrive);
         root.addView(driveScreen, new android.widget.FrameLayout.LayoutParams(-1, -1));
     }
 
@@ -261,7 +243,7 @@ public class PanelActivity extends Activity {
         });
         follower.start();
         controller.start();
-        scheduleAutoPlay();
+        AutoPlay.schedule(this, 5000, "panel started");   // once per process: a reboot also triggers it from the media listener
         if (Settings.of(this).driveScore()) {
             speed = new SpeedFollower(this, kmh -> {
                 long now = System.currentTimeMillis();
@@ -308,6 +290,7 @@ public class PanelActivity extends Activity {
         hidePrayer();
         hideDrive();
         hideWeather();
+        if (!demo) DriveLog.save(this, DriveTrip.trip());
         if (speed != null) { speed.stop(); speed = null; }
         if (follower != null) { follower.stop(); follower = null; }
         if (controller != null) { controller.stop(); controller = null; }

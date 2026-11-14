@@ -33,4 +33,31 @@ final class DemoData {
         String air = "{\"current\":{\"us_aqi\":78,\"pm2_5\":24.5,\"pm10\":41.2}}";
         return ForecastParser.parse(json, air, System.currentTimeMillis());
     }
+
+    /** Made-up drives over the last 75 days, so the history, charts and insights have something to show. */
+    static java.util.List<DriveStats.Drive> drives() {
+        java.util.List<DriveStats.Drive> out = new java.util.ArrayList<>();
+        java.util.Random r = new java.util.Random(7);
+        long day = 86_400_000L, now = System.currentTimeMillis();
+        for (int i = 75; i >= 1; i--) {
+            if (r.nextInt(10) < 3) continue;   // some days without driving
+            int n = 1 + r.nextInt(2);
+            for (int k = 0; k < n; k++) {
+                DriveStats.Drive d = new DriveStats.Drive();
+                d.start = now - i * day + (8 + k * 9) * 3_600_000L;
+                d.km = 5 + r.nextInt(40);
+                d.sec = (long) (d.km / (35 + r.nextInt(40)) * 3600);
+                d.idleSec = (long) (d.sec * (0.02 + r.nextFloat() * 0.15));
+                d.end = d.start + d.sec * 1000;
+                d.score = 55 + r.nextInt(40) + (i < 14 ? 4 : 0);
+                if (d.score > 99) d.score = 99;
+                d.avgKmh = d.km / (d.sec / 3600f);
+                d.maxKmh = d.avgKmh + 30;
+                d.zone = Math.min(100, d.score + r.nextInt(15)); d.smooth = Math.max(0, d.score - 15 + r.nextInt(10));
+                d.eff = d.score; d.idle = 100 - d.idleSec * 250f / d.sec; d.bonus = 100;
+                out.add(d);
+            }
+        }
+        return out;
+    }
 }

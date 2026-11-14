@@ -18,6 +18,8 @@ final class EcoScore {
     private static final long IDLE_MIN_MS = 15_000L;         // a stop must last this long to count as idling
     private static final float TRIP_START_MIN_KMH = 5f;
     private static final int MAX_SAMPLES = 36_000;           // 10 hours at one a second
+    static final long PARKED_GAP_MS = 10 * 60_000L;          // no reading this long after standing still: the car was parked, a new trip
+    static final long ANY_GAP_MS = 60 * 60_000L;             // no reading this long at all: a new trip whatever the last speed
 
     static final class Stats {
         int score;                 // 0 to 100
@@ -50,6 +52,7 @@ final class EcoScore {
 
     /** One GPS speed reading in km/h at the given time (about once a second). */
     void onSpeed(float speedKmh, long nowMs) {
+        if (tripActive && isNewTrip(lastSpeedKmh, lastSampleMs, nowMs)) reset();   // the last trip was already saved to the log
         if (!tripActive && speedKmh >= TRIP_START_MIN_KMH) {
             tripActive = true;
             tripStartMs = nowMs;
@@ -126,6 +129,16 @@ final class EcoScore {
     }
 
     boolean isTripActive() { return tripActive; }
+
+    /** When the trip began (ms), or 0 when there is none: it names the trip in the drive log. */
+    long tripStartMs() { return tripActive ? tripStartMs : 0; }
+
+    /** True when a reading after a long silence belongs to a new drive: parked for a while, or nothing heard for an hour. */
+    static boolean isNewTrip(float lastSpeedKmh, long lastSampleMs, long nowMs) {
+        if (lastSampleMs <= 0) return false;
+        long gap = nowMs - lastSampleMs;
+        return gap >= ANY_GAP_MS || (gap >= PARKED_GAP_MS && lastSpeedKmh < IDLE_THRESHOLD_KMH);
+    }
 
     /** 100 inside the best band, then 70, 40 and 10 as it gets further (20 and 40 km/h either side). */
     private static float zonePoints(float speed, float lo, float hi) {

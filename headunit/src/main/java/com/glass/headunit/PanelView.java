@@ -577,13 +577,6 @@ final class PanelView extends LinearLayout {
             t.setText("No map app found. Install one, or choose it in Settings.");
             banners.addView(t);
         }
-        if (HelperPrompt.shouldShow(helperOn(), Settings.of(getContext()).mapShare())) {
-            Button b = Glass.textButton(getContext(), "Turn on the window helper to apply your split", dark,
-                    () -> Intents.safeStart(getContext(), new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS), "accessibility settings"));
-            LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
-            lp.topMargin = dp(8);
-            banners.addView(b, lp);
-        }
         if (locationMissing) {
             TextView t = text(13, false, PanelStyle.dim(dark));
             t.setText("Location unavailable" + (prayer == null ? "" : " — showing the last known place"));
@@ -611,12 +604,6 @@ final class PanelView extends LinearLayout {
         SplitHelperService helper = SplitHelperService.get();
         if (helper != null) helper.applyRatioWhenSplit();
         else Spike.log("ratio not applied: the window helper is off");
-    }
-
-    /** True when the user has switched the window helper on in Accessibility settings. */
-    private boolean helperOn() {
-        String enabled = android.provider.Settings.Secure.getString(getContext().getContentResolver(), android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-        return enabled != null && enabled.contains(getContext().getPackageName());
     }
 
     @Override
