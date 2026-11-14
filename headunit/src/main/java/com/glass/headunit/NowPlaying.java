@@ -17,11 +17,12 @@ final class NowPlaying {
     final android.graphics.Bitmap cover;   // small album cover, or null
     final String coverId;                   // changes when the cover does (for change detection)
     final boolean seekable;                 // the player offers seeking and reports a length: the progress bar can be dragged
+    final String queueTitle;                // the name the player gives the list that is playing (a playlist), or ""
 
     NowPlaying(String pkg, String playerLabel, String title, String artist, boolean playing,
                long positionMs, long durationMs, Lyrics lyrics, boolean lyricsLoading, int line,
                boolean shuffleAvailable, boolean shuffleOn, boolean repeatAvailable, int repeatMode,
-               android.graphics.Bitmap cover, String coverId, boolean seekable) {
+               android.graphics.Bitmap cover, String coverId, boolean seekable, String queueTitle) {
         this.pkg = pkg;
         this.playerLabel = playerLabel;
         this.title = title;
@@ -39,12 +40,13 @@ final class NowPlaying {
         this.cover = cover;
         this.coverId = coverId == null ? "" : coverId;
         this.seekable = seekable;
+        this.queueTitle = queueTitle == null ? "" : queueTitle;
     }
 
-    static NowPlaying idle() { return new NowPlaying(null, "", "", "", false, 0, 0, null, false, -1, false, false, false, 0, null, "", false); }
+    static NowPlaying idle() { return new NowPlaying(null, "", "", "", false, 0, 0, null, false, -1, false, false, false, 0, null, "", false, ""); }
 
     /** What the panel would draw differently: used to avoid redrawing when nothing visible changed. */
     String key() {
-        return pkg + "|" + title + "|" + artist + "|" + playing + "|" + lyricsLoading + "|" + (lyrics != null) + "|" + line + "|" + shuffleAvailable + "|" + shuffleOn + "|" + repeatAvailable + "|" + repeatMode + "|" + coverId + "|" + seekable;
+        return pkg + "|" + title + "|" + artist + "|" + playing + "|" + lyricsLoading + "|" + (lyrics != null) + "|" + line + "|" + shuffleAvailable + "|" + shuffleOn + "|" + repeatAvailable + "|" + repeatMode + "|" + coverId + "|" + seekable + "|" + queueTitle;
     }
 }

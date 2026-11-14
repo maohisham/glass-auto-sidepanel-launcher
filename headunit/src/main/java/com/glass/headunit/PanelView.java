@@ -28,7 +28,7 @@ import java.util.List;
  */
 final class PanelView extends LinearLayout {
 
-    interface Controls { void play(); void pause(); void next(); void previous(); void toggleShuffle(); void toggleRepeat(); void seekTo(long ms); }
+    interface Controls { void play(); void pause(); void next(); void previous(); void toggleShuffle(); void toggleRepeat(); void seekTo(long ms); void pinNowPlaying(); }
 
 
     private PanelMode mode = PanelMode.REGULAR;
@@ -366,6 +366,8 @@ final class PanelView extends LinearLayout {
         wl.leftMargin = dp(10);
         songRow.addView(words, wl);
         nowBox.addView(songRow);
+        // hold the song to pin it to Quick picks (a still finger is never a swipe, so the two do not clash)
+        songRow.setOnLongClickListener(v -> { if (controls != null) controls.pinNowPlaying(); return true; });
 
         // second row: shuffle, elapsed, bar with a knob, length, repeat
         progRow = new LinearLayout(getContext());
@@ -427,6 +429,7 @@ final class PanelView extends LinearLayout {
         radioBox.setPadding(0, dp(8), 0, dp(8));
         radioCover = new CoverView(getContext(), dark, compact ? 120 : 148);
         radioBox.addView(radioCover);
+        radioBox.setOnLongClickListener(v -> { if (controls != null) controls.pinNowPlaying(); return true; });   // hold the station to pin it
         LinearLayout radioWords = new LinearLayout(getContext());
         radioWords.setOrientation(VERTICAL);
         radioTitle = text(24, true, fg);

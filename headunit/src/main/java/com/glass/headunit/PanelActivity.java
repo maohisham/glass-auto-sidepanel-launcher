@@ -23,6 +23,7 @@ public class PanelActivity extends Activity {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private PanelView panel;
     private android.widget.FrameLayout root;
+    private NowPlaying lastNow;   // what the panel shows now, for pinning it
     private PlayerPicker picker;
     private AppsGrid appsGrid;
     private PrayerScreen prayerScreen;
@@ -114,6 +115,54 @@ public class PanelActivity extends Activity {
         int pos = SplitPlan.panelPosition(b[0], b[1], b[2], b[3], screen.width(), screen.height());
         Spike.log("layout: the panel is " + (pos == SplitPlan.POS_FULL ? "full screen" : pos == SplitPlan.POS_FIRST ? "on the first side (left or top)" : "on the last side (right or bottom)")
                 + ", the panel's wish is " + (Settings.of(this).swapSides() ? "first" : "last"));
+    }
+
+    /** Held the song or station: pin it, or ask first when it could be the playlist it came from. */
+    private void pinNowPlaying() {
+        NowPlaying n = lastNow;
+        if (n == null || n.pkg == null || n.title.isEmpty()) { Spike.log("pins: nothing playing to pin"); return; }
+        if (DriveLog.paused) { Spike.log("pins: demo data is showing, so nothing is pinned"); return; }
+        java.util.List<Pin> options = PinChoice.options(n.pkg, n.title, n.artist, n.queueTitle, ControlsPolicy.isRadio(n.pkg));
+        if (options.size() == 1) { pinAndSay(options.get(0), n.cover); return; }
+        showPinChoice(options, n.cover);
+    }
+
+    private void pinAndSay(Pin p, android.graphics.Bitmap cover) {
+        boolean added = Pins.pin(this, p, cover);
+        android.widget.Toast.makeText(this, (added ? "Pinned " : "Already pinned: ") + p.name, android.widget.Toast.LENGTH_SHORT).show();
+    }
+
+    /** A small box over the panel: "Playlist: <name>" or "Just this song". Tapping outside it cancels. */
+    private void showPinChoice(java.util.List<Pin> options, android.graphics.Bitmap cover) {
+        Settings s = Settings.of(this);
+        boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        boolean dark = PanelStyle.isDark(s.theme(), night);
+        final android.widget.FrameLayout shade = new android.widget.FrameLayout(this);
+        shade.setBackgroundColor(0x99000000);
+        shade.setOnClickListener(v -> root.removeView(shade));
+        android.widget.LinearLayout box = new android.widget.LinearLayout(this);
+        box.setOrientation(android.widget.LinearLayout.VERTICAL);
+        box.setBackground(new GlassBackground(dark));
+        int pad = Glass.dp(this, 18);
+        box.setPadding(pad, pad, pad, pad);
+        box.setClickable(true);   // a tap inside the box does not cancel
+        android.widget.TextView head = new android.widget.TextView(this);
+        head.setText("Pin to Quick picks");
+        head.setTextSize(18);
+        head.setTextColor(PanelStyle.fg(dark));
+        box.addView(head);
+        for (final Pin p : options) {
+            String label = Pin.PLAYLIST.equals(p.kind) ? "Playlist: " + p.name : "Just this song";
+            android.widget.Button b = Glass.textButton(this, label, dark, () -> { root.removeView(shade); pinAndSay(p, cover); });
+            b.setMinHeight(Glass.dp(this, 56));
+            android.widget.LinearLayout.LayoutParams bl = new android.widget.LinearLayout.LayoutParams(-1, -2);
+            bl.topMargin = Glass.dp(this, 12);
+            box.addView(b, bl);
+        }
+        android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(-1, -2, android.view.Gravity.CENTER);
+        lp.leftMargin = lp.rightMargin = Glass.dp(this, 24);
+        shade.addView(box, lp);
+        root.addView(shade, new android.widget.FrameLayout.LayoutParams(-1, -1));
     }
 
     private void showPicker() {
@@ -229,7 +278,7 @@ public class PanelActivity extends Activity {
             else handler.post(demoStep);
             return;
         }
-        follower = new MediaFollower(this, n -> panel.showNowPlaying(n));
+        follower = new MediaFollower(this, n -> { lastNow = n; panel.showNowPlaying(n); });
         controller = new PanelController(this, (p, w, off, loc) -> panel.showData(p, w, off, loc));
         controller.setForecastListener(f -> { forecast = f; if (weatherScreen != null) weatherScreen.setForecast(f); });
         panel.setControls(new PanelView.Controls() {
@@ -240,6 +289,7 @@ public class PanelActivity extends Activity {
             @Override public void toggleShuffle() { follower.toggleShuffle(); }
             @Override public void toggleRepeat() { follower.toggleRepeat(); }
             @Override public void seekTo(long ms) { follower.seekTo(ms); }
+            @Override public void pinNowPlaying() { PanelActivity.this.pinNowPlaying(); }
         });
         follower.start();
         controller.start();
@@ -335,7 +385,7 @@ public class PanelActivity extends Activity {
 
     private static NowPlaying demoRadio() {
         return new NowPlaying(Proxy.VRADIO, "VRadio", "Hot FM", "Now playing: Sesaat Cuma Kamu", true, 0, 0, null, false, -1,
-                false, false, false, 0, null, "", false);
+                false, false, false, 0, null, "", false, "");
     }
 
     private static NowPlaying demoNow(int line) {
@@ -346,6 +396,6 @@ public class PanelActivity extends Activity {
         l.lines.addAll(Arrays.asList(lines));
         for (int i = 0; i < lines.length; i++) l.times.add(i * 3000L);
         return new NowPlaying("demo.player", "Demo", "Stay a while, we're parked", "Senja Sessions", true,
-                line * 3000L, 36000, l, false, line, true, true, true, android.support.v4.media.session.PlaybackStateCompat.REPEAT_MODE_ALL, null, "", true);
+                line * 3000L, 36000, l, false, line, true, true, true, android.support.v4.media.session.PlaybackStateCompat.REPEAT_MODE_ALL, null, "", true, "Senja Sessions");
     }
 }

@@ -43,7 +43,8 @@ final class MediaFollower {
     private Bitmap cover;
     private String coverId = "", coverLoading = "";
     private String lastRecorded = "";
-    private String shuffleCheckedPkg = "";   // the player whose remembered shuffle was last checked
+    private String shuffleCheckedPkg = "";
+    private String lastQueueSeen = "";   // the player whose remembered shuffle was last checked
     private NowPlaying lastDelivered;
     private long switchLockUntil;   // while set, do not jump back to the player we are switching away from
 
@@ -345,6 +346,15 @@ final class MediaFollower {
         listener.onChanged(n);
     }
 
+    /** The name of the list playing, as the player reports it; logged when it changes, to learn which players report one. */
+    private String queueTitle() {
+        CharSequence q = target == null ? null : target.getQueueTitle();
+        String name = q == null ? "" : q.toString().trim();
+        String seen = target.getPackageName() + "|" + name;
+        if (!seen.equals(lastQueueSeen)) { lastQueueSeen = seen; Spike.log("queue: " + target.getPackageName() + " reports '" + name + "'"); }
+        return name;
+    }
+
     private NowPlaying snapshot() {
         if (target == null) return NowPlaying.idle();
         MediaMetadata m = target.getMetadata();
@@ -361,6 +371,6 @@ final class MediaFollower {
         int repeatMode = repeatAvailable && compat != null ? compat.getRepeatMode() : 0;
         return new NowPlaying(target.getPackageName(), Proxy.label(ctx, target.getPackageName()), title, artist,
                 isPlaying(target), pos, dur, lyrics, lyricsLoading, line, shuffleAvailable, shuffleOn, repeatAvailable, repeatMode, cover, coverId,
-                SeekRule.canSeek(target.getPackageName(), ps == null ? 0 : ps.getActions(), dur));
+                SeekRule.canSeek(target.getPackageName(), ps == null ? 0 : ps.getActions(), dur), queueTitle());
     }
 }
