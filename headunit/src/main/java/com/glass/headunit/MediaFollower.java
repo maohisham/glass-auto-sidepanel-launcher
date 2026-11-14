@@ -43,6 +43,7 @@ final class MediaFollower {
     private Bitmap cover;
     private String coverId = "", coverLoading = "";
     private String lastRecorded = "";
+    private String shuffleCheckedPkg = "";   // the player whose remembered shuffle was last checked
     private NowPlaying lastDelivered;
     private long switchLockUntil;   // while set, do not jump back to the player we are switching away from
 
@@ -151,9 +152,9 @@ final class MediaFollower {
         detach();
         target = c;
         c.registerCallback(mirror, handler);
-        try { compat = new MediaControllerCompat(ctx, MediaSessionCompat.Token.fromToken(c.getSessionToken())); }
-        catch (Exception e) { compat = null; Spike.log("shuffle: cannot reach " + c.getPackageName() + " (" + e.getClass().getSimpleName() + ")"); }
+        bindCompat(c, true);
         Spike.log("following " + c.getPackageName());
+        if (!c.getPackageName().equals(shuffleCheckedPkg)) { shuffleCheckedPkg = c.getPackageName(); handler.postDelayed(() -> { if (target == c) restoreShuffle(c); }, 1500); }   // the shuffle state arrives a moment after connecting
         trackMaybeChanged();
     }
 
@@ -162,11 +163,49 @@ final class MediaFollower {
         try { if (target != null) target.unregisterCallback(mirror); } catch (Exception ignored) { }
         target = c;
         c.registerCallback(mirror, handler);
-        try { compat = new MediaControllerCompat(ctx, MediaSessionCompat.Token.fromToken(c.getSessionToken())); }
-        catch (Exception e) { compat = null; }
+        bindCompat(c, false);
         lostAt = 0;
         Spike.log("followed " + c.getPackageName() + "'s new session");
         trackMaybeChanged();
+    }
+
+    /** The support-library view of the player, which has the shuffle calls; it also tells us when shuffle changes, from here or in the app. */
+    private void bindCompat(MediaController c, boolean log) {
+        unbindCompat();
+        try {
+            compat = new MediaControllerCompat(ctx, MediaSessionCompat.Token.fromToken(c.getSessionToken()));
+            compat.registerCallback(shuffleWatch, handler);
+        } catch (Exception e) {
+            compat = null;
+            if (log) Spike.log("shuffle: cannot reach " + c.getPackageName() + " (" + e.getClass().getSimpleName() + ")");
+        }
+    }
+
+    private void unbindCompat() {
+        if (compat != null) try { compat.unregisterCallback(shuffleWatch); } catch (Exception ignored) { }
+        compat = null;
+    }
+
+    private boolean shuffleAvailable() {
+        PlaybackState ps = target == null ? null : target.getPlaybackState();
+        return target != null && ControlsPolicy.showShuffle(target.getPackageName(), ps == null ? 0 : ps.getActions());
+    }
+
+    private final MediaControllerCompat.Callback shuffleWatch = new MediaControllerCompat.Callback() {
+        @Override public void onShuffleModeChanged(int mode) {
+            if (target == null || !shuffleAvailable() || mode < 0) return;
+            Settings.of(ctx).setShuffleFor(target.getPackageName(), mode);
+            Spike.log("shuffle: " + target.getPackageName() + " now " + (mode > 0 ? "on" : "off") + ", remembered");
+        }
+    };
+
+    /** Sets shuffle back the way it was last left in this player, once each time we start following it. */
+    private void restoreShuffle(MediaController c) {
+        if (compat == null) return;
+        Integer mode = ShuffleMemory.toApply(Settings.of(ctx).shuffleFor(c.getPackageName()), compat.getShuffleMode(), shuffleAvailable());
+        if (mode == null) return;
+        compat.getTransportControls().setShuffleMode(mode);
+        Spike.log("shuffle: set " + c.getPackageName() + " back to " + (mode > 0 ? "on" : "off"));
     }
 
     private void detach() {
@@ -176,7 +215,7 @@ final class MediaFollower {
         }
         target = null;
         lostAt = 0;
-        compat = null;
+        unbindCompat();
         cover = null;
         coverId = "";
         coverLoading = "";

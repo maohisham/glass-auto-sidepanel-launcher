@@ -58,6 +58,10 @@ final class Settings {
     boolean speedAlert() { return sp.getBoolean("speedAlert", false); }
     void setSpeedAlert(boolean v) { sp.edit().putBoolean("speedAlert", v).apply(); }
 
+    /** The shuffle mode last seen for a player (0 off, above 0 on), or null when never seen. */
+    Integer shuffleFor(String pkg) { return sp.contains("shuffle_" + pkg) ? sp.getInt("shuffle_" + pkg, 0) : null; }
+    void setShuffleFor(String pkg, int mode) { sp.edit().putInt("shuffle_" + pkg, mode).apply(); }
+
     /** How loud the speed alert beeps, as a share of the media volume range: 10 to 100, 70 by default. */
     int beepVolume() { return sp.getInt("beepVolume", 70); }
     void setBeepVolume(int pct) { sp.edit().putInt("beepVolume", Math.max(10, Math.min(100, pct))).apply(); }
