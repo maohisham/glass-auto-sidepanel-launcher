@@ -29,6 +29,16 @@ final class SpeedAlert {
                 .build();
         try { am.requestAudioFocus(focus); } catch (Exception ignored) { }
         int vol = am.getStreamVolume(AudioManager.STREAM_MUSIC), max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        final int before = vol;
+        final int raisedTo = BeepVolume.target(vol, max, Settings.of(ctx).beepVolume());
+        if (raisedTo > vol) {
+            try {
+                am.setStreamVolume(AudioManager.STREAM_MUSIC, raisedTo, 0);
+                Spike.log("speed alert: volume raised from " + vol + " to " + raisedTo);
+                vol = raisedTo;
+            } catch (Exception e) { Spike.log("speed alert: could not raise the volume (" + e.getClass().getSimpleName() + ")"); }
+        }
+        final boolean raised = vol > before;
         if (vol == 0) Spike.log("speed alert: the media volume is at zero, so the beep cannot be heard");
         try {
             final ToneGenerator tone = new ToneGenerator(AudioManager.STREAM_MUSIC, 100);
@@ -37,6 +47,13 @@ final class SpeedAlert {
             handler.postDelayed(() -> {
                 tone.release();
                 try { am.abandonAudioFocusRequest(focus); } catch (Exception ignored) { }
+                if (raised) {
+                    int now = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+                    if (BeepVolume.shouldRestore(raisedTo, now)) {
+                        am.setStreamVolume(AudioManager.STREAM_MUSIC, before, 0);
+                        Spike.log("speed alert: volume put back to " + before);
+                    } else Spike.log("speed alert: volume left at " + now + ", as the driver set it");
+                }
             }, 1500);
         } catch (RuntimeException e) {
             Spike.log("speed alert: the unit could not make the sound (" + e.getClass().getSimpleName() + ")");

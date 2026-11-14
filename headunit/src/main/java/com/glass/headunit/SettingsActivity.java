@@ -93,7 +93,7 @@ public class SettingsActivity extends Activity {
         root.addView(heading("Driving"));
         root.addView(toggle("Driving score and speed (uses the GPS while the panel is open)", s.driveScore(), s::setDriveScore));
 
-        root.addView(toggle("Speed alert: beep once when over the limit (while the panel is open, on the media volume)", s.speedAlert(), s::setSpeedAlert));
+        root.addView(toggle("Speed alert: beep once when over the limit (while the panel is open)", s.speedAlert(), s::setSpeedAlert));
         final TextView limitText = new TextView(this);
         limitText.setText("Alert above " + s.speedLimit() + " km/h");
         root.addView(limitText);
@@ -110,6 +110,22 @@ public class SettingsActivity extends Activity {
             @Override public void onStopTrackingTouch(SeekBar sb) { }
         });
         root.addView(limitSeek);
+        final TextView beepText = new TextView(this);
+        beepText.setText("Beep volume: " + s.beepVolume() + "% of the media volume");
+        root.addView(beepText);
+        SeekBar beepSeek = new SeekBar(this);
+        beepSeek.setMax(18);                                     // 10% to 100% in steps of 5
+        beepSeek.setProgress((s.beepVolume() - 10) / 5);
+        beepSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar sb, int p, boolean user) {
+                int pct = 10 + p * 5;
+                beepText.setText("Beep volume: " + pct + "% of the media volume");
+                if (user) s.setBeepVolume(pct);
+            }
+            @Override public void onStartTrackingTouch(SeekBar sb) { }
+            @Override public void onStopTrackingTouch(SeekBar sb) { }
+        });
+        root.addView(beepSeek);
         root.addView(button("Test the alert sound", () -> new SpeedAlert(this).play()));
 
         root.addView(heading("Prayer zone"));

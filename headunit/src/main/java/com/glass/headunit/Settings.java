@@ -58,6 +58,10 @@ final class Settings {
     boolean speedAlert() { return sp.getBoolean("speedAlert", false); }
     void setSpeedAlert(boolean v) { sp.edit().putBoolean("speedAlert", v).apply(); }
 
+    /** How loud the speed alert beeps, as a share of the media volume range: 10 to 100, 70 by default. */
+    int beepVolume() { return sp.getInt("beepVolume", 70); }
+    void setBeepVolume(int pct) { sp.edit().putInt("beepVolume", Math.max(10, Math.min(100, pct))).apply(); }
+
     /** The speed limit for the alert in km/h, 40 to 180. */
     int speedLimit() { return sp.getInt("speedLimit", 110); }
     void setSpeedLimit(int kmh) { sp.edit().putInt("speedLimit", Math.max(40, Math.min(180, kmh))).apply(); }
