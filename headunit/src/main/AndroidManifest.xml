@@ -85,6 +85,21 @@
             android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
             android:label="Glass Panel setup" />
 
+        <!-- "Glass Panel" in the Share menu: pins a shared playlist or album link to Quick picks. -->
+        <activity
+            android:name=".ShareToPinActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:label="Glass Panel">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".ZonePickerActivity"
             android:exported="false"
