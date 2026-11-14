@@ -219,6 +219,17 @@ public class SplitHelperService extends AccessibilityService {
 
     // ---- single steps (also used by SplitProbeActivity) ----
 
+    boolean isSplit() { return dividerBounds() != null; }
+
+    /** Opens an app over the whole screen: leaves the split first when there is one (the app would otherwise take a half). */
+    void openFullScreen(String pkg) {
+        if (isSplit()) {
+            Spike.log("helper: leaving the split to open " + pkg + " full screen");
+            toggleSplit();
+            handler.postDelayed(() -> launch(pkg, false), 1200);
+        } else launch(pkg, false);
+    }
+
     boolean toggleSplit() {
         boolean ok = performGlobalAction(GLOBAL_ACTION_TOGGLE_SPLIT_SCREEN);
         Spike.log("helper: toggle split-screen -> " + (ok ? "accepted" : "refused"));

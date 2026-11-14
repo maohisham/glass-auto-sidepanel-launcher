@@ -337,6 +337,7 @@ public class SettingsActivity extends Activity {
                 () -> Intents.safeStart(this, new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:" + getPackageName())), "display over other apps")));
         checklistBox.addView(row("Window helper (auto split-screen at start)", accessibilityOn(),
                 () -> Intents.safeStart(this, new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS), "accessibility settings")));
+        checklistBox.addView(note("The Android Auto button opens full screen only while the window helper is on."));
     }
 
     private boolean accessibilityOn() {

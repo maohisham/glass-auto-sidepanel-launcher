@@ -241,7 +241,9 @@ final class PanelView extends LinearLayout {
         if (onPlayer != null) { topRow.addView(icon(Icon.PLAYER, "Choose a player", 44, IconView.Style.NORMAL, () -> onPlayer.run()), gapped(0)); firstIcon = false; }
         if (onSettings != null) { topRow.addView(icon(Icon.SETTINGS, "Settings", 44, IconView.Style.NORMAL, () -> onSettings.run()), gapped(firstIcon ? 0 : 12)); firstIcon = false; }
         if (onApps != null) { topRow.addView(icon(Icon.APPS, "Apps", 44, IconView.Style.NORMAL, () -> onApps.run()), gapped(firstIcon ? 0 : 12)); firstIcon = false; }
-        if (mapsInstalled()) { topRow.addView(icon(Icon.MAPS, "Open the map app", 44, IconView.Style.NORMAL, this::openMaps), gapped(firstIcon ? 0 : 12)); }
+        if (mapsInstalled()) { topRow.addView(icon(Icon.MAPS, "Open the map app", 44, IconView.Style.NORMAL, this::openMaps), gapped(firstIcon ? 0 : 12)); firstIcon = false; }
+        final String[] aa = androidAutoApp();
+        if (aa != null) topRow.addView(icon(Icon.CAR, "Android Auto", 44, IconView.Style.NORMAL, () -> openAndroidAuto(aa[0])), gapped(firstIcon ? 0 : 12));
         topRow.addView(new View(getContext()), new LayoutParams(0, 1, 1f));
         scoreChip = null;
         speedChip = null;
@@ -599,6 +601,27 @@ final class PanelView extends LinearLayout {
             t.setText("Offline — showing saved data");
             banners.addView(t);
         }
+    }
+
+    /** The installed Android Auto bridge app (AutoKit, Xlink, ZLink) as {package, label}, or null. */
+    private String[] androidAutoApp() {
+        android.content.pm.PackageManager pm = getContext().getPackageManager();
+        Intent launcher = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+        java.util.List<String[]> apps = new java.util.ArrayList<>();
+        for (android.content.pm.ResolveInfo r : pm.queryIntentActivities(launcher, 0))
+            apps.add(new String[]{r.activityInfo.packageName, String.valueOf(r.loadLabel(pm))});
+        return AndroidAutoApp.pick(apps);
+    }
+
+    /** Opens Android Auto full screen: the window helper leaves the split first; without it the unit may give it the panel's half. */
+    private void openAndroidAuto(String pkg) {
+        SplitHelperService helper = SplitHelperService.get();
+        if (helper != null) { helper.openFullScreen(pkg); return; }
+        Intent i = getContext().getPackageManager().getLaunchIntentForPackage(pkg);
+        if (i == null) { Spike.log("android auto: cannot open " + pkg); return; }
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        Spike.log("android auto: no window helper, so " + pkg + " may open in the panel's half");
+        Intents.safeStart(getContext(), i, "Android Auto");
     }
 
     /** One tap to the map app: beside the panel when the screen is split, full-screen when the split did not start. */

@@ -93,6 +93,15 @@ final class Icons {
                 }
                 break;
             }
+            case CAR: {
+                Path p = new Path();   // a car seen from the front-side: body, roof and two wheels
+                p.moveTo(3, 16); p.lineTo(3, 12.5f); p.lineTo(5.2f, 8); p.lineTo(18.8f, 8); p.lineTo(21, 12.5f); p.lineTo(21, 16); p.close();
+                p.moveTo(3, 12.5f); p.lineTo(21, 12.5f);
+                c.drawPath(p, stroke);
+                c.drawCircle(7, 17.5f, 1.8f, stroke);
+                c.drawCircle(17, 17.5f, 1.8f, stroke);
+                break;
+            }
             case SHUFFLE: {
                 Path p = new Path();
                 p.moveTo(3, 7); p.lineTo(6, 7);
