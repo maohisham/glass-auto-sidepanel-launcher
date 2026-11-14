@@ -99,14 +99,6 @@ final class PlayerSwitcher {
         catch (Exception e) { return false; }
     }
 
-    /** Plays an item from that player's own browse list. */
-    void playItem(String pkg, String mediaId) {
-        switchTo(pkg, true, c -> {
-            c.getTransportControls().playFromMediaId(mediaId, null);
-            Spike.log("asked " + pkg + " to play item " + mediaId);
-        });
-    }
-
     private void switchTo(String pkg, boolean openScreen, Consumer<MediaController> then) { switchTo(pkg, then, openScreen); }
 
     private void switchTo(String pkg, Consumer<MediaController> then, boolean openScreen) {

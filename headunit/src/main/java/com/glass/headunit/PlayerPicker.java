@@ -4,7 +4,6 @@ import android.content.Context;
 import android.graphics.Outline;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
-import android.support.v4.media.MediaBrowserCompat;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.util.TypedValue;
@@ -25,26 +24,22 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Shown over the panel (or in the bubble's overlay): pick a player from round-cornered cards with their app icons, then
- * search for a song, replay a recent one, or browse the player's library where it allows that. Tapping a card starts
- * that player and keeps the list open so the next step is one tap away.
+ * Shown over the panel (or in the bubble's overlay): pick a player from round-cornered cards with their app icons, or
+ * tap a Quick pick (a pinned station, song or playlist) or a recent song. Search sits at the end, since it needs
+ * typing. Tapping a card starts that player and keeps the list open so the next step is one tap away.
  */
 final class PlayerPicker extends LinearLayout {
-
-    private enum Tab { SEARCH, RECENT, LIBRARY }
 
     private final Context ctx;
     private final MediaFollower follower;
     private final PlayerSwitcher switcher;
     private final Runnable onClose;
     private final boolean dark;
-    private final LinearLayout cards, moreCards, tabs, content;
+    private final LinearLayout cards, moreCards, content;
     private final Button moreToggle, openBtn;
-    private final List<String> stack = new ArrayList<>();   // parent ids of the library pages, null = the player's root
     private String selectedPkg, selectedLabel = "";
-    private Tab tab = Tab.SEARCH;
     private boolean moreOpen;
-    private boolean browsing;
+    private boolean searchOpen;   // the search field is showing in place of the lists
 
     PlayerPicker(Context ctx, MediaFollower followerOrNull, boolean dark, Runnable onClose) {
         super(ctx);
@@ -98,12 +93,6 @@ final class PlayerPicker extends LinearLayout {
         ol.topMargin = Glass.dp(ctx, 10);
         addView(openBtn, ol);
 
-        tabs = new LinearLayout(ctx);
-        tabs.setOrientation(HORIZONTAL);
-        LayoutParams tl = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
-        tl.topMargin = Glass.dp(ctx, 14);
-        addView(tabs, tl);
-
         content = new LinearLayout(ctx);
         content.setOrientation(VERTICAL);
         ScrollView sv = new ScrollView(ctx);
@@ -115,13 +104,13 @@ final class PlayerPicker extends LinearLayout {
 
         if (follower != null && follower.controller() != null) selectedPkg = follower.controller().getPackageName();
         refreshPlayers();
-        showTab(Tab.SEARCH);
+        showMain();
     }
 
-    /** Back inside the library pages; false when already at the top (so the caller can close the picker). */
+    /** Back closes the search field first; false when there is nothing to close (so the caller can close the picker). */
     boolean handleBack() {
-        if (!browsing || stack.size() <= 1) return false;
-        goBack();
+        if (!searchOpen) return false;
+        showMain();
         return true;
     }
 
@@ -183,7 +172,7 @@ final class PlayerPicker extends LinearLayout {
         selectedLabel = name;
         if (changed || follower == null || follower.controller() == null || !pkg.equals(follower.controller().getPackageName())) switcher.switchTo(pkg);
         refreshPlayers();
-        showTab(tab);
+        showMain();
     }
 
     /**
@@ -198,29 +187,112 @@ final class PlayerPicker extends LinearLayout {
         onClose.run();
     }
 
-    // ---- tabs ----
+    // ---- Quick picks, Recent and Search ----
 
-    private void showTab(Tab t) {
-        tab = t;
-        browsing = false;
-        stack.clear();
-        tabs.removeAllViews();
-        tabs.addView(pill("Search", t == Tab.SEARCH, () -> showTab(Tab.SEARCH)), tabParams(0));
-        tabs.addView(pill("Recent", t == Tab.RECENT, () -> showTab(Tab.RECENT)), tabParams(8));
-        tabs.addView(pill("Library", t == Tab.LIBRARY, () -> showTab(Tab.LIBRARY)), tabParams(8));
+    /** Quick picks first, then Recent, then a Search button: everything reachable with one tap while driving. */
+    private void showMain() {
+        searchOpen = false;
         content.removeAllViews();
-        if (t == Tab.SEARCH) showSearch();
-        else if (t == Tab.RECENT) showRecent();
-        else showLibrary();
+        content.addView(label("Quick picks", 15, true, PanelStyle.dim(dark)));
+        List<Pin> pins = Pins.all(ctx);
+        if (pins.isEmpty()) {
+            content.addView(label("Hold the song on the panel, or share a playlist to Glass Panel, to pin it here.", 14, false, PanelStyle.dim(dark)), gapParams(8));
+        } else {
+            LinearLayout row = new LinearLayout(ctx);
+            row.setOrientation(HORIZONTAL);
+            for (Pin p : pins) row.addView(tile(p), tileParams());
+            HorizontalScrollView hs = new HorizontalScrollView(ctx);
+            hs.setHorizontalScrollBarEnabled(false);
+            hs.addView(row);
+            content.addView(hs, gapParams(8));
+        }
+        content.addView(label("Recent", 15, true, PanelStyle.dim(dark)), gapParams(18));
+        List<History.Entry> recent = History.recent(ctx, 25);
+        if (recent.isEmpty()) content.addView(label("Songs you play will show up here.", 14, false, PanelStyle.dim(dark)), gapParams(8));
+        long now = System.currentTimeMillis();
+        for (final History.Entry e : recent) {
+            String sub = Proxy.label(ctx, e.pkg) + " · " + AgoText.of(e.last, now);
+            View r = row(e.title, (e.artist.isEmpty() ? "" : e.artist + "  ·  ") + sub, e.pkg, () -> { switcher.playSong(e.pkg, e.title, e.artist); onClose.run(); });
+            r.setMinimumHeight(Glass.dp(ctx, 64));
+            content.addView(r, gapParams(8));
+        }
+        Button search = Glass.textButton(ctx, "Search", dark, this::showSearch);
+        search.setMinHeight(Glass.dp(ctx, 56));
+        content.addView(search, gapParams(18));
     }
 
-    private LayoutParams tabParams(int leftDp) {
-        LayoutParams lp = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
-        lp.leftMargin = Glass.dp(ctx, leftDp);
+    private LayoutParams tileParams() {
+        LayoutParams lp = new LayoutParams(Glass.dp(ctx, 96), LayoutParams.WRAP_CONTENT);
+        lp.rightMargin = Glass.dp(ctx, 10);
         return lp;
     }
 
+    /** A Quick pick tile: cover (or the player's icon), a small player badge, the name and what kind of thing it is. */
+    private View tile(final Pin p) {
+        boolean ok = installed(p.pkg);
+        LinearLayout t = new LinearLayout(ctx);
+        t.setOrientation(VERTICAL);
+        int pad = Glass.dp(ctx, 8);
+        t.setPadding(pad, pad, pad, pad);
+        t.setBackground(Glass.button(ctx, dark, false, false, 14));
+        t.setClickable(true);
+        t.setAlpha(ok ? 1f : 0.4f);
+        android.widget.FrameLayout art = new android.widget.FrameLayout(ctx);
+        android.graphics.Bitmap cover = Pins.cover(ctx, p);
+        if (cover != null) {
+            ImageView iv = new ImageView(ctx);
+            iv.setImageBitmap(cover);
+            iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            final float radius = Glass.dp(ctx, 10);
+            iv.setClipToOutline(true);
+            iv.setOutlineProvider(new ViewOutlineProvider() {
+                @Override public void getOutline(View v, Outline o) { o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), radius); }
+            });
+            art.addView(iv, new android.widget.FrameLayout.LayoutParams(-1, -1));
+            android.widget.FrameLayout.LayoutParams bl = new android.widget.FrameLayout.LayoutParams(Glass.dp(ctx, 22), Glass.dp(ctx, 22), Gravity.END | Gravity.BOTTOM);
+            bl.rightMargin = bl.bottomMargin = Glass.dp(ctx, 4);
+            art.addView(appIcon(p.pkg, 22), bl);
+        } else {
+            art.addView(appIcon(p.pkg, 64), new android.widget.FrameLayout.LayoutParams(Glass.dp(ctx, 64), Glass.dp(ctx, 64), Gravity.CENTER));
+        }
+        t.addView(art, new LayoutParams(LayoutParams.MATCH_PARENT, Glass.dp(ctx, 64)));
+        TextView name = label(p.name, 14, true, PanelStyle.fg(dark));
+        name.setMaxLines(2);
+        name.setEllipsize(TextUtils.TruncateAt.END);
+        t.addView(name, gapParams(6));
+        t.addView(label(p.kindLabel(), 12, false, PanelStyle.dim(dark)));
+        t.setOnClickListener(v -> {
+            if (!installed(p.pkg)) { Spike.log("pin: " + p.pkg + " is not installed"); return; }
+            switcher.playPin(p);
+            onClose.run();
+        });
+        t.setOnLongClickListener(v -> { showPinMenu(p); return true; });
+        return t;
+    }
+
+    /** Held a tile: move it or unpin it. */
+    private void showPinMenu(final Pin p) {
+        content.removeAllViews();
+        content.addView(label(p.name, 18, true, PanelStyle.fg(dark)));
+        content.addView(bigButton("Move left", () -> { Pins.save(ctx, Pins.move(Pins.all(ctx), p.key(), -1)); showMain(); }), gapParams(12));
+        content.addView(bigButton("Move right", () -> { Pins.save(ctx, Pins.move(Pins.all(ctx), p.key(), +1)); showMain(); }), gapParams(10));
+        content.addView(bigButton("Unpin", () -> { Pins.unpin(ctx, p); showMain(); }), gapParams(10));
+        content.addView(bigButton("Cancel", this::showMain), gapParams(10));
+    }
+
+    private Button bigButton(String text, Runnable r) {
+        Button b = Glass.textButton(ctx, text, dark, r);
+        b.setMinHeight(Glass.dp(ctx, 56));
+        return b;
+    }
+
+    private boolean installed(String pkg) {
+        try { return ctx.getPackageManager().getApplicationInfo(pkg, 0).enabled; } catch (Exception e) { return false; }
+    }
+
     private void showSearch() {
+        searchOpen = true;
+        content.removeAllViews();
         LinearLayout row = new LinearLayout(ctx);
         row.setOrientation(HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
@@ -249,86 +321,7 @@ final class PlayerPicker extends LinearLayout {
         content.addView(row);
         content.addView(label(selectedPkg == null ? "Pick a player above." : "Plays in " + selectedLabel + ". Say the song or artist with the keyboard's microphone.", 13, false, PanelStyle.dim(dark)),
                 gapParams(10));
-    }
-
-    private void showRecent() {
-        List<History.Entry> recent = History.recent(ctx, 25);
-        if (recent.isEmpty()) {
-            content.addView(label("Songs you play will show up here.", 14, false, PanelStyle.dim(dark)));
-            return;
-        }
-        for (final History.Entry e : recent) {
-            content.addView(row(e.title, e.artist, e.pkg, () -> { switcher.playSong(e.pkg, e.title, e.artist); onClose.run(); }), gapParams(8));
-        }
-    }
-
-    // ---- library ----
-
-    private void showLibrary() {
-        if (selectedPkg == null) { content.addView(label("Pick a player above.", 14, false, PanelStyle.dim(dark))); return; }
-        int status = BrowseStatus.get(ctx, selectedPkg);
-        if (status == BrowseStatus.ALLOWED) { browse(selectedPkg, selectedLabel, null); return; }
-        if (status == BrowseStatus.REFUSED) {
-            content.addView(label(selectedLabel + " keeps its library closed to other apps. Use Search or Recent instead.", 14, false, PanelStyle.dim(dark)));
-            content.addView(Glass.textButton(ctx, "Check again", dark, () -> probe(selectedPkg, selectedLabel)), gapParams(10));
-            return;
-        }
-        probe(selectedPkg, selectedLabel);
-    }
-
-    private void probe(final String pkg, final String name) {
-        content.removeAllViews();
-        content.addView(label("Checking whether " + name + " lets us browse…", 14, false, PanelStyle.dim(dark)));
-        BrowseProbe.load(ctx, pkg, null, (items, error) -> {
-            int verdict = BrowseStatus.fromError(error);
-            BrowseStatus.set(ctx, pkg, verdict);
-            if (!pkg.equals(selectedPkg) || tab != Tab.LIBRARY) return;     // the user moved on
-            content.removeAllViews();
-            if (error == null) { stack.clear(); showItems(pkg, name, null, items); return; }
-            if (verdict == BrowseStatus.REFUSED) { showLibrary(); return; }
-            content.addView(label("Could not check " + name + " (" + error + ").", 14, false, PanelStyle.dim(dark)));
-            content.addView(Glass.textButton(ctx, "Try again", dark, () -> probe(pkg, name)), gapParams(10));
-        });
-    }
-
-    private void browse(final String pkg, final String name, final String parentId) {
-        content.removeAllViews();
-        content.addView(label("Loading…", 14, false, PanelStyle.dim(dark)));
-        BrowseProbe.load(ctx, pkg, parentId, (items, error) -> {
-            if (!pkg.equals(selectedPkg) || tab != Tab.LIBRARY) return;
-            content.removeAllViews();
-            if (error != null) {
-                if (BrowseStatus.fromError(error) == BrowseStatus.REFUSED) BrowseStatus.set(ctx, pkg, BrowseStatus.REFUSED);
-                content.addView(label("Could not load that list (" + error + ").", 14, false, PanelStyle.dim(dark)));
-                content.addView(Glass.textButton(ctx, "Try again", dark, () -> browse(pkg, name, parentId)), gapParams(10));
-                return;
-            }
-            showItems(pkg, name, parentId, items);
-        });
-    }
-
-    private void showItems(final String pkg, final String name, String parentId, List<MediaBrowserCompat.MediaItem> items) {
-        if (stack.isEmpty() || !java.util.Objects.equals(stack.get(stack.size() - 1), parentId)) stack.add(parentId);
-        browsing = true;
-        content.removeAllViews();
-        if (items.isEmpty()) content.addView(label("Nothing here.", 14, false, PanelStyle.dim(dark)));
-        for (final MediaBrowserCompat.MediaItem it : items) {
-            CharSequence t = it.getDescription().getTitle(), sub = it.getDescription().getSubtitle();
-            String title = t == null ? "(untitled)" : t.toString();
-            if (it.isBrowsable()) {
-                content.addView(row(title, sub == null ? "" : sub.toString(), null, () -> browse(pkg, name, it.getMediaId())), gapParams(8));
-            } else {
-                content.addView(row(title, sub == null ? "" : sub.toString(), null, () -> { switcher.playItem(pkg, it.getMediaId()); onClose.run(); }), gapParams(8));
-            }
-        }
-    }
-
-    private void goBack() {
-        if (stack.size() > 1) {
-            stack.remove(stack.size() - 1);
-            String parent = stack.remove(stack.size() - 1);
-            browse(selectedPkg, selectedLabel, parent);
-        }
+        content.addView(bigButton("Back to Quick picks", this::showMain), gapParams(14));
     }
 
     // ---- small view helpers ----
