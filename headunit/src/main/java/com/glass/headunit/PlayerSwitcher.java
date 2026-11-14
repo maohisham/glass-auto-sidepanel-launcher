@@ -42,6 +42,63 @@ final class PlayerSwitcher {
         }, 1500));
     }
 
+    /** Plays a Quick pick, by its kind; then checks it really started and presses Play once more if not. */
+    void playPin(Pin p) {
+        if (!installed(p.pkg)) { Spike.log("pin: " + p.pkg + " is not installed"); return; }
+        Spike.log("pin: playing " + p.kindLabel().toLowerCase(java.util.Locale.ROOT) + " '" + p.name + "' in " + p.pkg);
+        switch (p.kind) {
+            case Pin.PLAYLIST: playPlaylist(p.pkg, p.name); break;
+            case Pin.LINK: playLink(p.pkg, p.link); break;
+            default: playSong(p.pkg, p.name, p.artist == null ? "" : p.artist);
+        }
+        handler.postDelayed(() -> {
+            MediaController c = Proxy.find(ctx, p.pkg);
+            android.media.session.PlaybackState ps = c == null ? null : c.getPlaybackState();
+            if (ps != null && ps.getState() == android.media.session.PlaybackState.STATE_PLAYING) { Spike.log("pin: playing"); return; }
+            if (c == null) { Spike.log("pin: " + p.pkg + " has no session yet, nothing more to press"); return; }
+            c.getTransportControls().play();
+            Spike.log("pin: pressed Play again");
+        }, 8_000);
+    }
+
+    /** Asks the player for a playlist by its name (the way a voice assistant asks for one). */
+    void playPlaylist(String pkg, String name) {
+        switchTo(pkg, true, c -> handler.postDelayed(() -> {
+            Bundle extras = new Bundle();
+            extras.putString(android.provider.MediaStore.EXTRA_MEDIA_FOCUS, "vnd.android.cursor.item/playlist");
+            extras.putString(android.provider.MediaStore.EXTRA_MEDIA_PLAYLIST, name);
+            c.getTransportControls().playFromSearch(name, extras);
+            Spike.log("asked " + pkg + " to play the playlist '" + name + "'");
+        }, 1500));
+    }
+
+    /** Opens a shared playlist link in its player, then presses Play if it has not started by itself. */
+    void playLink(String pkg, String url) {
+        MediaController current = follower != null ? follower.controller() : Proxy.findActive(ctx, null);
+        if (current != null && !pkg.equals(current.getPackageName())) current.getTransportControls().pause();
+        if (follower != null) follower.lockSwitch(16_000);
+        android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url));
+        i.setPackage(pkg);
+        i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+        Spike.log("pin: opening " + url + " in " + pkg);
+        Intents.safeStart(ctx, i, Proxy.label(ctx, pkg));
+        handler.postDelayed(() -> {
+            MediaController c = Proxy.find(ctx, pkg);
+            android.media.session.PlaybackState ps = c == null ? null : c.getPlaybackState();
+            if (c == null) { Spike.log("pin: " + pkg + " has no session 4 s after opening the link"); return; }
+            if (follower != null) follower.follow(c);
+            if (ps == null || ps.getState() != android.media.session.PlaybackState.STATE_PLAYING) {
+                c.getTransportControls().play();
+                Spike.log("pin: the link opened, pressed Play");
+            }
+        }, 4_000);
+    }
+
+    private boolean installed(String pkg) {
+        try { return pkg != null && !pkg.isEmpty() && ctx.getPackageManager().getApplicationInfo(pkg, 0).enabled; }
+        catch (Exception e) { return false; }
+    }
+
     /** Plays an item from that player's own browse list. */
     void playItem(String pkg, String mediaId) {
         switchTo(pkg, true, c -> {
