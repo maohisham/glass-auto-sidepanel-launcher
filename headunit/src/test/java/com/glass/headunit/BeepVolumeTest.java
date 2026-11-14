@@ -18,4 +18,10 @@ public class BeepVolumeTest {
         assertTrue(BeepVolume.shouldRestore(11, 11));
         assertFalse(BeepVolume.shouldRestore(11, 8));   // the driver turned it down during the beep
     }
+
+    @Test public void levelToPutBackAfterTheBeep() {
+        assertEquals(4, BeepVolume.restoreLevel(true, 4, 11, 11));    // untouched: back to the music's level
+        assertEquals(-1, BeepVolume.restoreLevel(true, 4, 11, 8));    // the driver changed it: leave it
+        assertEquals(-1, BeepVolume.restoreLevel(false, 4, 4, 4));    // never raised: nothing to do
+    }
 }

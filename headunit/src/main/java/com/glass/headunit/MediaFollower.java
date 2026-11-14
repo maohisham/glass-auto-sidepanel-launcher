@@ -147,7 +147,10 @@ final class MediaFollower {
     MediaController controller() { return target; }
 
     /** Follows this player now (used right after the user switches player). */
-    void follow(MediaController c) { if (c != null) { attach(c); publish(); } }
+    void follow(MediaController c) {
+        if (!started) { Spike.log("not following " + (c == null ? "nothing" : c.getPackageName()) + ": the panel is closed"); return; }   // a closed panel would never let go of it
+        if (c != null) { attach(c); publish(); }
+    }
 
     private void attach(MediaController c) {
         detach();
@@ -155,7 +158,7 @@ final class MediaFollower {
         c.registerCallback(mirror, handler);
         bindCompat(c, true);
         Spike.log("following " + c.getPackageName());
-        if (!c.getPackageName().equals(shuffleCheckedPkg)) { shuffleCheckedPkg = c.getPackageName(); handler.postDelayed(() -> { if (target == c) restoreShuffle(c); }, 1500); }   // the shuffle state arrives a moment after connecting
+        if (!c.getPackageName().equals(shuffleCheckedPkg)) { shuffleCheckedPkg = c.getPackageName(); final String pkg = c.getPackageName(); handler.postDelayed(() -> { if (target != null && pkg.equals(target.getPackageName())) restoreShuffle(target); }, 1500); }   // the shuffle state arrives a moment after connecting
         trackMaybeChanged();
     }
 

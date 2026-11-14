@@ -45,19 +45,29 @@ final class SpeedAlert {
             tone.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 800);
             Spike.log("speed alert: sounded (media volume " + vol + "/" + max + ")");
             handler.postDelayed(() -> {
-                tone.release();
-                try { am.abandonAudioFocusRequest(focus); } catch (Exception ignored) { }
-                if (raised) {
-                    int now = am.getStreamVolume(AudioManager.STREAM_MUSIC);
-                    if (BeepVolume.shouldRestore(raisedTo, now)) {
-                        am.setStreamVolume(AudioManager.STREAM_MUSIC, before, 0);
-                        Spike.log("speed alert: volume put back to " + before);
-                    } else Spike.log("speed alert: volume left at " + now + ", as the driver set it");
-                }
+                try {
+                    putBack(am, raised, before, raisedTo);   // before the music comes back up, so it is never loud for a moment
+                    try { am.abandonAudioFocusRequest(focus); } catch (Exception ignored) { }
+                    tone.release();
+                } catch (Exception e) { Spike.log("speed alert: could not tidy up after the beep (" + e.getClass().getSimpleName() + ")"); }
             }, 1500);
         } catch (RuntimeException e) {
             Spike.log("speed alert: the unit could not make the sound (" + e.getClass().getSimpleName() + ")");
+            putBack(am, raised, before, raisedTo);
             try { am.abandonAudioFocusRequest(focus); } catch (Exception ignored) { }
         }
+    }
+
+    /** Sets the media volume back to where it was, unless the driver changed it meanwhile. Never leaves it raised by mistake. */
+    private static void putBack(AudioManager am, boolean raised, int before, int raisedTo) {
+        if (!raised) return;
+        try {
+            int now = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+            int level = BeepVolume.restoreLevel(true, before, raisedTo, now);
+            if (level >= 0) {
+                am.setStreamVolume(AudioManager.STREAM_MUSIC, level, 0);
+                Spike.log("speed alert: volume put back to " + level);
+            } else Spike.log("speed alert: volume left at " + now + ", as the driver set it");
+        } catch (Exception e) { Spike.log("speed alert: could not put the volume back (" + e.getClass().getSimpleName() + ")"); }
     }
 }

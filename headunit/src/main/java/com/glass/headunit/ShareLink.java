@@ -22,7 +22,7 @@ final class ShareLink {
         if (text == null) return null;
         Matcher m = URL.matcher(text);
         if (!m.find()) return null;
-        String url = m.group().replaceAll("[).,;!]+$", "");
+        String url = canonical(m.group().replaceAll("[).,;!]+$", ""));
         String pkg;
         if (url.startsWith("https://music.youtube.com/playlist?list=") || url.startsWith("https://music.youtube.com/browse/")) pkg = YOUTUBE_MUSIC;
         else if (url.startsWith("https://open.spotify.com/playlist/") || url.startsWith("https://open.spotify.com/album/")) pkg = "com.spotify.music";
@@ -33,6 +33,18 @@ final class ShareLink {
         Pin p = new Pin();
         p.kind = Pin.LINK; p.pkg = pkg; p.name = name; p.link = url; p.added = System.currentTimeMillis();
         return p;
+    }
+
+    /** The link without tracking bits (each share adds a new "si" value), so the same playlist is the same pin. */
+    static String canonical(String url) {
+        int q = url.indexOf('?');
+        if (url.startsWith("https://open.spotify.com/")) return q < 0 ? url : url.substring(0, q);
+        if (url.startsWith("https://music.youtube.com/playlist") && q >= 0) {
+            for (String part : url.substring(q + 1).split("&"))
+                if (part.startsWith("list=")) return "https://music.youtube.com/playlist?" + part;
+        }
+        if (url.startsWith("https://music.youtube.com/browse/")) return q < 0 ? url : url.substring(0, q);
+        return url;
     }
 
     /** The installed YouTube Music (Google's, or a patched one such as Morphe's), from {package, label} pairs; null when none. */

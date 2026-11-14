@@ -17,4 +17,9 @@ final class BeepVolume {
 
     /** Put the volume back only when it is still where the beep left it. */
     static boolean shouldRestore(int raisedTo, int nowLevel) { return nowLevel == raisedTo; }
+
+    /** The level to set back after the beep, or -1 to leave the volume alone (never raised, or the driver changed it). */
+    static int restoreLevel(boolean raised, int before, int raisedTo, int nowLevel) {
+        return raised && shouldRestore(raisedTo, nowLevel) ? before : -1;
+    }
 }

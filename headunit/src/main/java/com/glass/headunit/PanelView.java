@@ -366,8 +366,6 @@ final class PanelView extends LinearLayout {
         wl.leftMargin = dp(10);
         songRow.addView(words, wl);
         nowBox.addView(songRow);
-        // hold the song to pin it to Quick picks (a still finger is never a swipe, so the two do not clash)
-        songRow.setOnLongClickListener(v -> { if (controls != null) controls.pinNowPlaying(); return true; });
 
         // second row: shuffle, elapsed, bar with a knob, length, repeat
         progRow = new LinearLayout(getContext());
@@ -429,7 +427,6 @@ final class PanelView extends LinearLayout {
         radioBox.setPadding(0, dp(8), 0, dp(8));
         radioCover = new CoverView(getContext(), dark, compact ? 120 : 148);
         radioBox.addView(radioCover);
-        radioBox.setOnLongClickListener(v -> { if (controls != null) controls.pinNowPlaying(); return true; });   // hold the station to pin it
         LinearLayout radioWords = new LinearLayout(getContext());
         radioWords.setOrientation(VERTICAL);
         radioTitle = text(24, true, fg);
@@ -740,6 +737,7 @@ final class PanelView extends LinearLayout {
      */
     @Override
     public boolean dispatchTouchEvent(MotionEvent e) {
+        watchHold(e);
         if (swipeEnabled && controls != null && now.pkg != null) {
             switch (e.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
@@ -770,6 +768,48 @@ final class PanelView extends LinearLayout {
 
     @Override
     public boolean onTouchEvent(MotionEvent e) { return swipeTracking || super.onTouchEvent(e); }
+
+    /**
+     * Holding the song (or the radio card) still for a second pins it. Any movement, a second finger or lifting the
+     * finger cancels the hold, so a swipe or a scroll never pins anything (see HoldRule).
+     */
+    private void watchHold(MotionEvent e) {
+        switch (e.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                removeCallbacks(holdFired);
+                if (controls != null && now.pkg != null && inHoldArea(e.getX(), e.getY())) {
+                    holdX = e.getX(); holdY = e.getY();
+                    postDelayed(holdFired, HoldRule.MS);
+                }
+                break;
+            case MotionEvent.ACTION_MOVE:
+                if (HoldRule.moved(e.getX() - holdX, e.getY() - holdY, getResources().getDisplayMetrics().density)) removeCallbacks(holdFired);
+                break;
+            default:   // up, cancel, a second finger
+                if (e.getActionMasked() != MotionEvent.ACTION_POINTER_UP) removeCallbacks(holdFired);
+                break;
+        }
+    }
+
+    private float holdX, holdY;
+
+    private final Runnable holdFired = () -> {
+        swipeTracking = false;   // the finger stayed still: this touch was a hold, not a swipe
+        Spike.log("pins: the song was held");
+        if (controls != null) controls.pinNowPlaying();
+    };
+
+    /** On the song row or the radio card, where they are showing. */
+    private boolean inHoldArea(float x, float y) {
+        for (View v : new View[]{songRow, radioBox}) {
+            if (v == null || !v.isShown()) continue;
+            android.graphics.Rect r = new android.graphics.Rect();
+            v.getDrawingRect(r);
+            offsetDescendantRectToMyCoords(v, r);
+            if (r.contains((int) x, (int) y)) return true;
+        }
+        return false;
+    }
 
     /** The song area (or the radio card) and everything below it, but not the song's own bar or any top button. */
     private boolean inSwipeArea(float x, float y) {

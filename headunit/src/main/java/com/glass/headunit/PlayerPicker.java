@@ -212,13 +212,43 @@ final class PlayerPicker extends LinearLayout {
         long now = System.currentTimeMillis();
         for (final History.Entry e : recent) {
             String sub = Proxy.label(ctx, e.pkg) + " · " + AgoText.of(e.last, now);
-            View r = row(e.title, (e.artist.isEmpty() ? "" : e.artist + "  ·  ") + sub, e.pkg, () -> { switcher.playSong(e.pkg, e.title, e.artist); onClose.run(); });
-            r.setMinimumHeight(Glass.dp(ctx, 64));
-            content.addView(r, gapParams(8));
+            content.addView(recentRow(e.title, (e.artist.isEmpty() ? "" : e.artist + "  ·  ") + sub, e.pkg,
+                    () -> { switcher.playSong(e.pkg, e.title, e.artist); onClose.run(); }), gapParams(10));
         }
         Button search = Glass.textButton(ctx, "Search", dark, this::showSearch);
         search.setMinHeight(Glass.dp(ctx, 56));
         content.addView(search, gapParams(18));
+    }
+
+    /** A Recent row, about twice the old height so it is easy to hit while driving: player icon, title, details, Play. */
+    private View recentRow(String title, String subtitle, String pkg, Runnable onClick) {
+        LinearLayout r = new LinearLayout(ctx);
+        r.setOrientation(HORIZONTAL);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        int pad = Glass.dp(ctx, 16);
+        r.setPadding(pad, pad, pad, pad);
+        r.setMinimumHeight(Glass.dp(ctx, 112));
+        r.setBackground(Glass.button(ctx, dark, false, false, 16));
+        r.setClickable(true);
+        r.setOnClickListener(v -> onClick.run());
+        LayoutParams ip = new LayoutParams(Glass.dp(ctx, 48), Glass.dp(ctx, 48));
+        ip.rightMargin = Glass.dp(ctx, 14);
+        r.addView(appIcon(pkg, 48), ip);
+        LinearLayout words = new LinearLayout(ctx);
+        words.setOrientation(VERTICAL);
+        TextView t = label(title, 19, true, PanelStyle.fg(dark));
+        t.setMaxLines(2);
+        t.setEllipsize(TextUtils.TruncateAt.END);
+        words.addView(t);
+        TextView sub = label(subtitle, 15, false, PanelStyle.dim(dark));
+        sub.setSingleLine();
+        sub.setEllipsize(TextUtils.TruncateAt.END);
+        words.addView(sub);
+        r.addView(words, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        LayoutParams pl = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        pl.leftMargin = Glass.dp(ctx, 10);
+        r.addView(new IconView(ctx, Icon.PLAY, "Play", dark, 44, IconView.Style.NORMAL, onClick), pl);
+        return r;
     }
 
     private LayoutParams tileParams() {

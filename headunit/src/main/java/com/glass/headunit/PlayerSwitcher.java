@@ -19,6 +19,7 @@ final class PlayerSwitcher {
     private final MediaFollower follower;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private String switchingTo;
+    private int generation;   // bumped by every switch, so a late check for an older one does nothing
 
     PlayerSwitcher(Context ctx, MediaFollower followerOrNull) {
         this.ctx = ctx.getApplicationContext();
@@ -51,14 +52,28 @@ final class PlayerSwitcher {
             case Pin.LINK: playLink(p.pkg, p.link); break;
             default: playSong(p.pkg, p.name, p.artist == null ? "" : p.artist);
         }
-        handler.postDelayed(() -> {
-            MediaController c = Proxy.find(ctx, p.pkg);
-            android.media.session.PlaybackState ps = c == null ? null : c.getPlaybackState();
-            if (ps != null && ps.getState() == android.media.session.PlaybackState.STATE_PLAYING) { Spike.log("pin: playing"); return; }
-            if (c == null) { Spike.log("pin: " + p.pkg + " has no session yet, nothing more to press"); return; }
-            c.getTransportControls().play();
-            Spike.log("pin: pressed Play again");
-        }, 8_000);
+        final int gen = generation;
+        handler.postDelayed(() -> checkStarted(p.pkg, gen, "pin"), 8_000);
+    }
+
+    /** A few seconds after a pin: press Play once more, unless something plays, the driver paused it, or moved on. */
+    private void checkStarted(String pkg, int gen, String why) {
+        MediaController c = Proxy.find(ctx, pkg);
+        MediaController active = Proxy.findActive(ctx, null);
+        android.media.session.PlaybackState any = active == null ? null : active.getPlaybackState();
+        boolean anythingPlaying = any != null && any.getState() == android.media.session.PlaybackState.STATE_PLAYING;
+        android.media.session.PlaybackState ps = c == null ? null : c.getPlaybackState();
+        boolean paused = ps != null && ps.getState() == android.media.session.PlaybackState.STATE_PAUSED && pausedSinceStart(c);
+        if (!PinCheck.shouldPress(gen, generation, anythingPlaying, paused)) { Spike.log(why + ": no need to press Play again"); return; }
+        if (c == null) { Spike.log(why + ": " + pkg + " has no session yet, nothing more to press"); return; }
+        c.getTransportControls().play();
+        Spike.log(why + ": pressed Play again");
+    }
+
+    /** The player says it was playing a moment ago and is paused now: the driver (or the car) paused it on purpose. */
+    private static boolean pausedSinceStart(MediaController c) {
+        android.media.session.PlaybackState ps = c.getPlaybackState();
+        return ps != null && android.os.SystemClock.elapsedRealtime() - ps.getLastPositionUpdateTime() < 7_000 && ps.getPosition() > 0;
     }
 
     /** Asks the player for a playlist by its name (the way a voice assistant asks for one). */
@@ -82,15 +97,12 @@ final class PlayerSwitcher {
         i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
         Spike.log("pin: opening " + url + " in " + pkg);
         Intents.safeStart(ctx, i, Proxy.label(ctx, pkg));
+        generation++;
+        final int gen = generation;
         handler.postDelayed(() -> {
             MediaController c = Proxy.find(ctx, pkg);
-            android.media.session.PlaybackState ps = c == null ? null : c.getPlaybackState();
-            if (c == null) { Spike.log("pin: " + pkg + " has no session 4 s after opening the link"); return; }
-            if (follower != null) follower.follow(c);
-            if (ps == null || ps.getState() != android.media.session.PlaybackState.STATE_PLAYING) {
-                c.getTransportControls().play();
-                Spike.log("pin: the link opened, pressed Play");
-            }
+            if (c != null && follower != null) follower.follow(c);
+            checkStarted(pkg, gen, "pin link");
         }, 4_000);
     }
 
@@ -102,6 +114,7 @@ final class PlayerSwitcher {
     private void switchTo(String pkg, boolean openScreen, Consumer<MediaController> then) { switchTo(pkg, then, openScreen); }
 
     private void switchTo(String pkg, Consumer<MediaController> then, boolean openScreen) {
+        generation++;
         MediaController current = follower != null ? follower.controller() : Proxy.findActive(ctx, null);
         if (current != null && !pkg.equals(current.getPackageName())) current.getTransportControls().pause();
         switchingTo = pkg;

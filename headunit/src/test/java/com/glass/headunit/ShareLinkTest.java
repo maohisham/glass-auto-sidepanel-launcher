@@ -31,4 +31,15 @@ public class ShareLinkTest {
         assertEquals("app.morphe.android.apps.youtube.music", ShareLink.resolveYouTubeMusic(Arrays.asList(
                 new String[]{"com.spotify.music", "Spotify"}, new String[]{"app.morphe.android.apps.youtube.music", "YouTube Music"})));
     }
+
+    @Test public void sharingTheSamePlaylistTwiceIsOnePin() {
+        Pin a = ShareLink.parse("https://music.youtube.com/playlist?list=RDTMAK5uy_abc&si=one", null);
+        Pin b = ShareLink.parse("https://music.youtube.com/playlist?si=two&list=RDTMAK5uy_abc", null);
+        assertEquals("https://music.youtube.com/playlist?list=RDTMAK5uy_abc", a.link);
+        assertEquals(a.key(), b.key());
+        Pin c = ShareLink.parse("https://open.spotify.com/playlist/37i9dQ?si=aaa", null);
+        Pin d = ShareLink.parse("https://open.spotify.com/playlist/37i9dQ?si=bbb", null);
+        assertEquals("https://open.spotify.com/playlist/37i9dQ", c.link);
+        assertEquals(c.key(), d.key());
+    }
 }
