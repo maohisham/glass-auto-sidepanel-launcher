@@ -102,6 +102,37 @@ final class Icons {
                 c.drawCircle(17, 17.5f, 1.8f, stroke);
                 break;
             }
+            case GAUGE: {   // a speedometer: a half ring with a needle
+                c.drawArc(new RectF(3, 6, 21, 24), 180, 180, false, stroke);
+                Path p = new Path();
+                p.moveTo(12, 15); p.lineTo(16.5f, 9.5f);
+                c.drawPath(p, stroke);
+                c.drawCircle(12f, 15f, 1.8f, fill);
+                break;
+            }
+            case NOTE: {   // a quaver: filled head, stem and flag
+                Path p = new Path();
+                p.moveTo(14, 17); p.lineTo(14, 4); p.cubicTo(15, 7, 19, 7.5f, 19, 11);
+                c.drawPath(p, stroke);
+                c.drawCircle(10.6f, 17.4f, 3.4f, fill);
+                break;
+            }
+            case SUN: {   // a circle with eight short rays
+                c.drawCircle(12f, 12f, 4f, stroke);
+                Path p = new Path();
+                for (int i = 0; i < 8; i++) {
+                    double a = Math.PI / 4 * i;
+                    float cx = (float) Math.cos(a), sy = (float) Math.sin(a);
+                    p.moveTo(12 + cx * 7f, 12 + sy * 7f); p.lineTo(12 + cx * 9.5f, 12 + sy * 9.5f);
+                }
+                c.drawPath(p, stroke);
+                break;
+            }
+            case BUBBLES: {   // two overlapping circles, one larger
+                c.drawCircle(9.5f, 13.5f, 6f, stroke);
+                c.drawCircle(17f, 7.5f, 3.6f, stroke);
+                break;
+            }
             case SHUFFLE: {
                 Path p = new Path();
                 p.moveTo(3, 7); p.lineTo(6, 7);
