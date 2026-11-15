@@ -67,6 +67,18 @@ It's built for Malaysian roads and runs on Android 12 or newer. In daily use on 
   <img src="docs/screenshots/settings.png" alt="Settings, with the group rail on the left" width="640">
 </p>
 
+## Home Assistant
+
+Glass Panel can send each car to your Home Assistant:
+
+- when it starts and stops, with its position on the map while driving;
+- each drive's score, distance and fuel cost;
+- the estimated odometer, the next service, and the road tax and insurance renewal, with reminders on your phone.
+
+It saves everything on the unit first and sends it when there's a signal. It uses a webhook only, with no access token on the unit. Two cars, each with its own head unit, appear side by side.
+
+See [Home Assistant setup](docs/home-assistant.md) for the steps and the YAML to paste.
+
 ## Install
 
 ### 1. Get the APK
@@ -120,6 +132,7 @@ Glass Panel has no account and no analytics. It contacts these services only:
 | Weather and air quality | open-meteo.com | Your approximate location |
 | Lyrics | lrclib.net, lyrics.ovh, music.163.com | The song's title and artist |
 | Fuel prices | data.gov.my | Nothing: it reads the public weekly prices |
+| Home Assistant (only if you turn it on) | Your own Home Assistant, at the address you enter | Car started and stopped, position while driving, drive results, mileage and service, and optionally the song playing |
 
 It reads the notifications of **Google Maps and Waze only**, and only into its own on-screen log. It never reads messages or other apps' notifications. Media access is used to see what's playing.
 
