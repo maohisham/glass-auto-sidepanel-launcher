@@ -16,9 +16,11 @@ The Driving score screen opens when you tap Score on the panel.
 
   - The Trip tab uses the running trip's estimate. The other tabs use the total of their drives.
   - When there's no fuel estimate (the generic car), the line instead says: "Choose your car in Settings → Car to see fuel and cost."
-- **The bottom of the screen**, on every tab, gets the prices in use:
-  - `RON95: RM 1.99 BUDI95 · RM 3.87 unsubsidised (prices from 12 Nov)`
-  - Before any fetch has worked: `RON95: RM 1.99 BUDI95 (no prices fetched yet)`
+- **A price card** right under the period rings, on every tab, readable at a glance (changed after the first version, on request):
+  - "Fuel price · RON95" with the price date ("from 12 Nov") as its heading;
+  - **RM 1.99** BUDI95, in the accent colour, and **RM 3.87** unsubsidised, side by side in large type;
+  - "BUDI95 saves you RM 1.88 a litre" underneath;
+  - before any fetch has worked: just RM 1.99 BUDI95, with "not fetched yet" as the date.
 
 Nothing else on the screen changes.
 

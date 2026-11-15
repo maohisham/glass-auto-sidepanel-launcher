@@ -107,6 +107,7 @@ final class DriveScreen extends LinearLayout {
         addCarCard(ctx);
         if (card != null && live != null) card.setEstimate(live.estLPer100);
         body.addView(periodRow(live, sum), gap(12));
+        body.addView(priceCard(), gap(12));
 
         if (period == TRIP) tripDetail(live, trip);
         else periodDetail(period, sum[period], last, all, now, tz);
@@ -116,9 +117,46 @@ final class DriveScreen extends LinearLayout {
             body.addView(text("Insights", 16, true, PanelStyle.fg(dark)), gap(20));
             for (String s : insights) body.addView(insight(s), gap(8));
         }
-        Settings st = Settings.of(ctx);
+    }
+
+    /** This week's RON95 prices in big type: BUDI95 and unsubsidised side by side, readable at a glance. */
+    private android.view.View priceCard() {
+        Settings st = Settings.of(getContext());
         double[] price = st.fuelPrices();
-        body.addView(text(FuelPrice.pricesLine(price[0], price[1], st.fuelPriceDate()), 13, false, PanelStyle.dim(dark)), gap(20));
+        int fg = PanelStyle.fg(dark), dim = PanelStyle.dim(dark), accent = PanelStyle.accent(dark);
+        LinearLayout card = new LinearLayout(getContext());
+        card.setOrientation(VERTICAL);
+        int pad = Glass.dp(getContext(), 16);
+        card.setPadding(pad, Glass.dp(getContext(), 12), pad, Glass.dp(getContext(), 14));
+        card.setBackground(Glass.button(getContext(), dark, false, false, 16));
+
+        LinearLayout head = new LinearLayout(getContext());
+        head.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        head.addView(text("Fuel price · RON95", 14, true, dim), new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        String date = FuelPrice.dateLabel(st.fuelPriceDate());
+        head.addView(text(price[1] > 0 ? date : "not fetched yet", 13, false, dim));
+        card.addView(head);
+
+        LinearLayout row = new LinearLayout(getContext());
+        row.addView(priceCell(price[0], "BUDI95", accent), new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        if (price[1] > 0) row.addView(priceCell(price[1], "Unsubsidised", fg), new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        card.addView(row, gap(6));
+
+        String saving = FuelPrice.savingLine(price[0], price[1]);
+        if (saving != null) card.addView(text(saving, 14, false, accent), gap(8));
+        return card;
+    }
+
+    private android.view.View priceCell(double rm, String label, int color) {
+        LinearLayout c = new LinearLayout(getContext());
+        c.setOrientation(VERTICAL);
+        LinearLayout value = new LinearLayout(getContext());
+        value.setGravity(android.view.Gravity.BOTTOM);
+        value.addView(text("RM ", 18, true, color));
+        value.addView(text(String.format(Locale.US, "%.2f", rm), 34, true, color));
+        c.addView(value);
+        c.addView(text(label, 13, false, PanelStyle.dim(dark)));
+        return c;
     }
 
     /** The estimated fuel cost, with and without BUDI95, or how to get one (a car must be chosen for a fuel estimate). */

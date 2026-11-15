@@ -90,6 +90,23 @@ final class FuelPrice {
         }
     }
 
+    /** "from 12 Nov" for a "yyyy-MM-dd" price date, or "" when there is none. */
+    static String dateLabel(String date) {
+        try {
+            java.text.SimpleDateFormat in = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US);
+            in.setLenient(false);
+            return "from " + new java.text.SimpleDateFormat("d MMM", Locale.US).format(in.parse(date));
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /** "BUDI95 saves you RM 1.88 a litre", or null without a higher unsubsidised price. */
+    static String savingLine(double budi95, double ron95) {
+        if (ron95 <= budi95 || budi95 <= 0) return null;
+        return "BUDI95 saves you RM " + rm(ron95 - budi95) + " a litre";
+    }
+
     private static double tenSen(double v) { return Math.round(v * 10) / 10.0; }
 
     private static String rm(double v) { return String.format(Locale.US, "%.2f", v); }

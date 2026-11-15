@@ -40,4 +40,7 @@ public class FuelPriceTest {
     @Test public void pricesLineWithDate() { assertEquals("RON95: RM 1.99 BUDI95 · RM 3.87 unsubsidised (prices from 12 Nov)", FuelPrice.pricesLine(1.99, 3.87, "2026-11-12")); }
     @Test public void pricesLineBeforeAnyFetch() { assertEquals("RON95: RM 1.99 BUDI95 (no prices fetched yet)", FuelPrice.pricesLine(1.99, 0, "")); }
     @Test public void pricesLineWithoutADate() { assertEquals("RON95: RM 1.99 BUDI95 · RM 3.87 unsubsidised", FuelPrice.pricesLine(1.99, 3.87, "junk")); }
+
+    @Test public void dateLabel() { assertEquals("from 12 Nov", FuelPrice.dateLabel("2026-11-12")); assertEquals("", FuelPrice.dateLabel("")); assertEquals("", FuelPrice.dateLabel(null)); }
+    @Test public void savingPerLitre() { assertEquals("BUDI95 saves you RM 1.88 a litre", FuelPrice.savingLine(1.99, 3.87)); assertNull(FuelPrice.savingLine(1.99, 0)); assertNull(FuelPrice.savingLine(2.5, 2.0)); }
 }
