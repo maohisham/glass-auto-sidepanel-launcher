@@ -70,8 +70,17 @@ public class DriveRecorder extends Service {
                 .setOngoing(true)
                 .build();
         try { startForeground(NOTE_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION); }
-        catch (Exception e) { Spike.log("recorder: could not show its notification (" + e.getClass().getSimpleName() + ")"); }
+        catch (Exception e) {
+            Spike.log("recorder: could not run in the foreground (" + e.getClass().getSimpleName() + "), stopping");
+            stopSelf();
+            return;
+        }
         session = DriveSession.restore(prefs(this).getString("session", ""));
+        long savedAt = prefs(this).getLong("savedAt", 0);
+        if (session.driving() && System.currentTimeMillis() - savedAt >= DriveSession.PARKED_MS) {
+            // the app was gone for a while (a power cut, the unit closing it): that drive is over
+            closeStale(this, session, savedAt);
+        }
         route = new RouteLog(this);
         if (session.driving()) route.begin(session.beganAt());
         gps = new SpeedFollower(this, this::onFix);
@@ -81,14 +90,19 @@ public class DriveRecorder extends Service {
     }
 
     @Override
-    public int onStartCommand(Intent i, int flags, int startId) { return START_STICKY; }
+    public int onStartCommand(Intent i, int flags, int startId) { return START_NOT_STICKY; }   // the panel starts it again
+
+    private static volatile boolean panelVisible;
+
+    /** The panel is on screen: recording keeps going while parked, so the next leg is recorded too. */
+    static void setPanelVisible(boolean v) { panelVisible = v; }
 
     private final Runnable tick = new Runnable() {
         @Override public void run() {
             long now = System.currentTimeMillis();
             handle(session.tick(now));
             save();
-            if (!session.driving() && now - Math.max(lastMoveAt, startedAt) >= DriveSession.PARKED_MS) {
+            if (!session.driving() && !panelVisible && now - Math.max(lastMoveAt, startedAt) >= DriveSession.PARKED_MS) {
                 Spike.log("recorder: stopped, parked 10 min");
                 stopSelf();
                 return;
@@ -100,7 +114,7 @@ public class DriveRecorder extends Service {
     private void onFix(float kmh, Location l) {
         long now = System.currentTimeMillis();
         Settings st = Settings.of(this);
-        if (st.driveScore()) DriveTrip.trip().onSpeed(kmh, now);
+        DriveTrip.trip().onSpeed(kmh, now);   // always: the drive's totals are also what Home Assistant gets
         // beep once when the speed goes over the limit (see SpeedAlertPolicy for when it can sound again)
         if (st.speedAlert() && alertPolicy.onSpeed(kmh, st.speedLimit())) {
             if (speedAlert == null) speedAlert = new SpeedAlert(this);
@@ -124,14 +138,20 @@ public class DriveRecorder extends Service {
                     break;
                 case END:
                     route.end();
-                    DriveLog.save(this, DriveTrip.trip(), e.time);   // as it was when the car stopped
-                    Spike.log("recorder: drive ended");
                     break;
                 default:
                     break;
             }
-            DriveEvents.publish(this, e, lastAccuracy);
-            if (e.kind == DriveSession.Kind.END) DriveTrip.trip().reset();   // the next drive is a new trip
+            if (e.kind == DriveSession.Kind.END) {
+                EcoScore trip = DriveTrip.trip();
+                DriveStats.Drive d = trip.isTripActive() ? DriveStats.Drive.of(trip.calculate(e.time), trip.tripStartMs(), e.time) : null;
+                DriveLog.save(this, trip, e.time);   // as it was when the car stopped
+                Spike.log("recorder: drive ended" + (d == null ? "" : String.format(java.util.Locale.US, " (%.1f km)", d.km)));
+                DriveEvents.ended(this, e, d);
+                trip.reset();   // the next drive is a new trip
+            } else {
+                DriveEvents.publish(this, e, lastAccuracy);
+            }
         }
         if (!events.isEmpty()) save();
     }
@@ -155,11 +175,20 @@ public class DriveRecorder extends Service {
     static void recoverAfterBoot(Context c) {
         android.content.SharedPreferences p = prefs(c);
         DriveSession s = DriveSession.restore(p.getString("session", ""));
-        List<DriveSession.Event> ev = s.closeIfOpen(p.getLong("savedAt", 0));
+        if (s.driving()) closeStale(c, s, p.getLong("savedAt", 0));
+    }
+
+    /** Closes a drive the app lost track of, from what the drive log saved for it (the trip itself is gone). */
+    private static void closeStale(Context c, DriveSession s, long savedAt) {
+        long began = s.beganAt();
+        List<DriveSession.Event> ev = s.closeIfOpen(savedAt);
+        prefs(c).edit().putString("session", s.save()).apply();
         if (ev.isEmpty()) return;
-        p.edit().putString("session", s.save()).apply();
-        Spike.log("recorder: closed a drive left open by a power cut");
-        for (DriveSession.Event e : ev) DriveEvents.publish(c, e, 0f);
+        DriveStats.Drive d = null;
+        for (DriveStats.Drive x : DriveLog.all(c)) if (Math.abs(x.start - began) <= 120_000L) d = x;   // that drive's own entry
+        Spike.log("recorder: closed a drive left open" + (d == null ? " (too short to have been saved)" : ""));
+        DriveTrip.trip().reset();
+        for (DriveSession.Event e : ev) DriveEvents.ended(c, e, d);
     }
 
     private static android.content.SharedPreferences prefs(Context c) {
@@ -171,7 +200,7 @@ public class DriveRecorder extends Service {
         handler.removeCallbacksAndMessages(null);
         if (gps != null) gps.stop();
         releaseVolume(this, "the drive recording stopped");
-        save();
+        if (session != null) save();
         instance = null;
         super.onDestroy();
     }

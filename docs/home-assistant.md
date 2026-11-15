@@ -30,7 +30,7 @@ Nothing extra to install: no HACS and no add-on.
    - turn on **Send to Home Assistant**;
    - paste the address `https://<your Home Assistant address>/api/webhook/<your webhook id>` and press **Save the address**;
    - check the **car name**. Each car needs its own, for example `myvi` and `city`;
-   - press **Send a test message**. A notification "Test message from myvi arrived" appears in Home Assistant.
+   - press **Send a test message**. A notification "Test message from myvi arrived" appears in Home Assistant. Check that it really appears: Home Assistant answers a wrong webhook id without an error, so the panel can't tell a typo from success. Only the notification proves the address is right.
 5. **On each head unit**, open Settings → **Car** → **Mileage and service** and enter the odometer reading, the next service and the road tax renewal date.
 
 ## The YAML

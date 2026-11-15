@@ -60,7 +60,8 @@ final class HaMessage {
         put(dr, "km", round(d.km, 1));
         put(dr, "minutes", Math.round(d.sec / 60.0));
         put(dr, "score", d.score);
-        put(dr, "grade", EcoScore.grade(d.score));
+        String grade = EcoScore.grade(d.score);
+        put(dr, "grade", grade.equals("Very Poor") ? "Poor" : grade);   // the field reference has four grades
         put(dr, "avg_kmh", Math.round(d.avgKmh));
         put(dr, "max_kmh", Math.round(d.maxKmh));
         put(dr, "idle_min", Math.round(d.idleSec / 60.0));

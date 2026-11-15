@@ -234,6 +234,7 @@ public class PanelActivity extends Activity {
 
     private void everyMinute() {
         if (!demo) updateRain();
+        if (!demo) DriveRecorder.start(this);   // recording stopped while parked: back on before the next leg
         boolean dark = Themes.dark(this);
         if (darkApplied != null && dark != darkApplied) {
             Spike.log("theme: sun switches to " + (dark ? "dark" : "light"));
@@ -461,6 +462,7 @@ public class PanelActivity extends Activity {
         controller.start();
         AutoPlay.schedule(this, 5000, "panel started");   // once per process: a reboot also triggers it from the media listener
         // the GPS is followed by the drive recorder, which keeps going behind other apps; the panel just shows the speed
+        DriveRecorder.setPanelVisible(!demo);
         DriveRecorder.start(this);
         if (Settings.of(this).driveScore()) DriveRecorder.listen(speedShown);
         // open the map app beside the panel: when the window helper asked for it at boot, or on every fresh start of the panel
@@ -511,6 +513,7 @@ public class PanelActivity extends Activity {
         hideWeather();
         if (!demo) DriveLog.save(this, DriveTrip.trip());
         DriveRecorder.unlisten(speedShown);
+        DriveRecorder.setPanelVisible(false);
         if (follower != null) { follower.stop(); follower = null; }
         if (controller != null) { controller.stop(); controller = null; }
     }

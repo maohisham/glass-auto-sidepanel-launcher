@@ -13,13 +13,11 @@ final class CarStatus {
         return Mileage.status(Settings.of(c).mileageState(), DriveLog.all(c), System.currentTimeMillis(), TimeZone.getDefault());
     }
 
-    /** A drive ended: its distance goes into the odometer estimate, then the status (and a km reminder) go out. */
+    /** A drive ended: its distance goes into the odometer estimate (once an odometer reading was entered). */
     static void afterDrive(Context c, DriveStats.Drive d) {
         Settings s = Settings.of(c);
         Mileage.State m = s.mileageState();
-        if (m.enteredAt > 0 && d != null) Mileage.addDrive(m, d.km);   // only once an odometer reading was entered
-        s.setMileageState(m);
-        send(c);
+        if (m.enteredAt > 0 && d != null) { Mileage.addDrive(m, d.km); s.setMileageState(m); }
     }
 
     /** Sends the status, and a km reminder when one is due (each only once per service). */

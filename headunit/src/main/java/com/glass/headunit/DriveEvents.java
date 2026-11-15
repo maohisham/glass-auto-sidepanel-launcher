@@ -2,7 +2,6 @@ package com.glass.headunit;
 
 import android.content.Context;
 
-import java.util.List;
 
 /** A drive's events, turned into Home Assistant messages (queued; sent when there is a signal). */
 final class DriveEvents {
@@ -26,24 +25,18 @@ final class DriveEvents {
                         st == null ? 0f : st.distanceKm, st == null ? 0 : st.durationSec / 60));
                 break;
             }
-            case END: {
-                DriveStats.Drive d = latestDrive(c);
-                if (d == null) { d = new DriveStats.Drive(); }
-                double[] price = s.fuelPrices();
-                h.enqueue(HaMessage.stopped(car, e.time, e.lat, e.lon, d, price[0], price[1]));
-                CarStatus.afterDrive(c, d);
-                break;
-            }
             default:
                 break;
         }
     }
 
-    /** The drive just ended, as the drive log last saved it (also after a power cut, when the trip itself is gone). */
-    private static DriveStats.Drive latestDrive(Context c) {
-        List<DriveStats.Drive> all = DriveLog.all(c);
-        DriveStats.Drive last = null;
-        for (DriveStats.Drive d : all) if (last == null || d.start > last.start) last = d;
-        return last;
+    /** The drive ended: its own totals (or none, when nothing is known of it) and the car's mileage go out. */
+    static void ended(Context c, DriveSession.Event e, DriveStats.Drive d) {
+        Settings s = Settings.of(c);
+        if (d != null) CarStatus.afterDrive(c, d);
+        if (!s.haOn()) return;
+        double[] price = s.fuelPrices();
+        HaSender.get(c).enqueue(HaMessage.stopped(s.haCarName(), e.time, e.lat, e.lon, d == null ? new DriveStats.Drive() : d, price[0], price[1]));
+        CarStatus.send(c);
     }
 }

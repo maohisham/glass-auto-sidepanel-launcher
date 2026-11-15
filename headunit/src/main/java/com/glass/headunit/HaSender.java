@@ -87,7 +87,13 @@ final class HaSender {
         catch (Exception e) { Spike.log("ha: could not save the queue (" + e.getClass().getSimpleName() + ")"); }
     }
 
+    private int sentSinceSave;
+
     private void sendLoop() {
+        try { drain(); } finally { if (sentSinceSave > 0) { save(); sentSinceSave = 0; } }
+    }
+
+    private void drain() {
         if (queue == null || !enabled()) return;
         Settings s = Settings.of(app);
         if (!s.haError().isEmpty()) return;   // a refusal a retry won't fix: wait for the settings to change
@@ -95,7 +101,8 @@ final class HaSender {
             int code = post(s.haUrl(), queue.peek());
             if (code >= 200 && code < 300) {
                 queue.removeFirst();
-                save();
+                waiting = queue.size();
+                if (++sentSinceSave >= 50) { save(); sentSinceSave = 0; }   // not the whole file for every message
                 attempt = 0;
                 noSignal = false;
                 s.setHaLastSentAt(System.currentTimeMillis());
@@ -144,7 +151,7 @@ final class HaSender {
         if (!HaRules.validUrl(url)) { result.done("Enter an address that starts with https:// first."); return; }
         worker.execute(() -> {
             int code = post(url, HaMessage.test(s.haCarName(), System.currentTimeMillis()).toString());
-            String msg = code >= 200 && code < 300 ? "Home Assistant got it. Look for the test notification there."
+            String msg = code >= 200 && code < 300 ? "Home Assistant answered. Check that the test notification appeared there: a wrong webhook id is also answered without an error."
                     : code < 0 ? "Couldn't reach Home Assistant. Check the address and the unit's internet."
                     : "Home Assistant said " + code + ". Check the address.";
             Spike.log("ha: test -> " + (code < 0 ? "no connection" : "code " + code));

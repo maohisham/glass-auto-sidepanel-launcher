@@ -34,4 +34,10 @@ public class DriveSessionTest {
     @Test public void longSleepEndsAtLastMove() { DriveSession s = started(); fix(s, 150_000, 40); s.onSleep(200_000); List<DriveSession.Event> e = s.onWake(200_000 + 15 * 60_000); assertEquals(END, e.get(0).kind); assertEquals(150_000, e.get(0).time); }
     @Test public void survivesARestart() { DriveSession r = DriveSession.restore(started().save()); assertTrue(r.driving()); assertTrue(DriveSession.restore("junk") != null); assertFalse(DriveSession.restore(null).driving()); }
     @Test public void powerCutClosesOnce() { DriveSession s = DriveSession.restore(started().save()); assertEquals(END, s.closeIfOpen(90_000).get(0).kind); assertTrue(s.closeIfOpen(95_000).isEmpty()); }
+
+    @Test public void screenOffWhileMovingDoesNotEnd() {
+        DriveSession s = started(); s.onSleep(200_000);
+        fix(s, 300_000, 60); fix(s, 900_000, 60);   // still driving with the screen off
+        assertTrue(s.onWake(200_000 + 15 * 60_000).isEmpty()); assertTrue(s.driving());
+    }
 }

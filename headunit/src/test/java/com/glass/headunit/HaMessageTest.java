@@ -37,4 +37,6 @@ public class HaMessageTest {
         assertEquals("test", HaMessage.test("c", 0).getString("type"));
         JSONObject p = HaMessage.nowPlaying("c", 0, "Easy On Me", "Adele", "YouTube Music"); assertEquals("Adele", p.getString("artist"));
     }
+
+    @Test public void gradeIsOneOfFour() throws Exception { DriveStats.Drive d = new DriveStats.Drive(); d.score = 10; assertEquals("Poor", HaMessage.stopped("c", 0, 0, 0, d, 1.99, 3.87).getJSONObject("drive").getString("grade")); }
 }

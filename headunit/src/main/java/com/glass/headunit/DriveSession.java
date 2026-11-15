@@ -79,7 +79,8 @@ final class DriveSession {
     List<Event> onWake(long now) {
         long slept = sleepAt;
         sleepAt = -1;
-        if (driving && slept >= 0 && now - slept >= PARKED_MS) return Collections.singletonList(end(lastMoveAt));
+        // the screen can go off while driving (a display-off button): only a sleep without moving ends the drive
+        if (driving && slept >= 0 && now - slept >= PARKED_MS && lastMoveAt < slept) return Collections.singletonList(end(lastMoveAt));
         return Collections.emptyList();
     }
 
