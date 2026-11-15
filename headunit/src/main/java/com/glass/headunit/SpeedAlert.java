@@ -77,6 +77,9 @@ final class SpeedAlert {
                 am.setStreamVolume(AudioManager.STREAM_MUSIC, level, 0);
                 Spike.log("speed alert: volume put back to " + level);
             } else Spike.log("speed alert: volume left at " + now + ", as the driver set it");
-        } catch (Exception e) { Spike.log("speed alert: could not put the volume back (" + e.getClass().getSimpleName() + ")"); }
+        } catch (Exception e) {
+            Spike.log("speed alert: could not put the volume back (" + e.getClass().getSimpleName() + "), setting it to " + before);
+            try { am.setStreamVolume(AudioManager.STREAM_MUSIC, before, 0); } catch (Exception ignored) { }
+        }
     }
 }

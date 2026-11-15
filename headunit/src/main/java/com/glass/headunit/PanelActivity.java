@@ -193,17 +193,22 @@ public class PanelActivity extends Activity {
     private final Runnable showSummary = this::showSummary;
 
     /** The weekly RON95 prices for the last drive's cost: at most once a week, kept on the unit for offline use. */
+    private static long fuelLastAttempt;   // an unreachable server is tried at most once an hour
+
     private void fetchFuelPricesIfDue() {
         final Settings st = Settings.of(this);
-        if (!FuelPrice.due(st.fuelFetchedAt(), System.currentTimeMillis())) return;
+        long now = System.currentTimeMillis();
+        if (!FuelPrice.due(st.fuelFetchedAt(), st.fuelPriceDate(), now) || !FuelPrice.mayTry(fuelLastAttempt, now)) return;
+        fuelLastAttempt = now;
         new Thread(() -> {
-            double[] p = FuelPrice.parse(Prayer.get(FuelPrice.URL));
-            if (p == null || p[0] <= 0) {
-                Spike.log("fuel price: could not fetch, keeping RM " + String.format(java.util.Locale.US, "%.2f", st.fuelPrices()[0]));
+            FuelPrice.Result r = FuelPrice.parseFull(Prayer.get(FuelPrice.URL));
+            if (r == null || r.budi95 <= 0) {
+                Spike.log("fuel price: could not fetch, keeping RM " + String.format(java.util.Locale.US, "%.2f", st.fuelPrices()[0]) + "; trying again in an hour at most");
                 return;
             }
-            st.setFuelPrices(p[0], p[1], System.currentTimeMillis());
-            Spike.log(String.format(java.util.Locale.US, "fuel price: RON95 BUDI95 RM %.2f, unsubsidised RM %.2f", p[0], p[1]));
+            st.setFuelPrices(r.budi95, r.ron95, System.currentTimeMillis());
+            st.setFuelPriceDate(r.date);
+            Spike.log(String.format(java.util.Locale.US, "fuel price: RON95 BUDI95 RM %.2f, unsubsidised RM %.2f (prices from %s)", r.budi95, r.ron95, r.date));
         }, "fuel-price").start();
     }
 

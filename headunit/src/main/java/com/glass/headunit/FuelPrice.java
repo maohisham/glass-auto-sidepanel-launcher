@@ -14,15 +14,27 @@ final class FuelPrice {
 
     private FuelPrice() { }
 
+    /** One week's prices and the date they apply from ("2026-11-12", a Thursday). */
+    static final class Result {
+        final double budi95, ron95;
+        final String date;
+        Result(double budi95, double ron95, String date) { this.budi95 = budi95; this.ron95 = ron95; this.date = date; }
+    }
+
     /** {budi95, ron95} from the newest row of actual prices ("level", not the weekly change), or null. */
     static double[] parse(String json) {
+        Result r = parseFull(json);
+        return r == null ? null : new double[]{r.budi95, r.ron95};
+    }
+
+    static Result parseFull(String json) {
         if (json == null) return null;
         try {
             org.json.JSONArray a = new org.json.JSONArray(json);
             for (int i = 0; i < a.length(); i++) {
                 org.json.JSONObject o = a.optJSONObject(i);
                 if (o == null || !"level".equals(o.optString("series_type"))) continue;
-                return new double[]{finite(o.optDouble("ron95_budi95", 0)), finite(o.optDouble("ron95", 0))};
+                return new Result(finite(o.optDouble("ron95_budi95", 0)), finite(o.optDouble("ron95", 0)), o.optString("date", ""));
             }
         } catch (Exception ignored) { }
         return null;
@@ -32,6 +44,28 @@ final class FuelPrice {
 
     /** Prices change weekly: fetch when never fetched, or a week after the last success. */
     static boolean due(long lastFetchMs, long now) { return lastFetchMs <= 0 || now - lastFetchMs >= WEEK_MS; }
+
+    private static final long SIX_HOURS_MS = 6L * 3_600_000L, HOUR_MS = 3_600_000L;
+
+    /**
+     * Due when the next week's prices are out: from the start of the day 7 days after the price date (the Thursday
+     * change), and not within 6 hours of the last success. Without a readable date, a week after the last success.
+     */
+    static boolean due(long lastFetchMs, String priceDate, long now) {
+        if (lastFetchMs <= 0) return true;
+        long next;
+        try {
+            java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+            f.setLenient(false);
+            next = f.parse(priceDate).getTime() + WEEK_MS;
+        } catch (Exception e) {
+            return due(lastFetchMs, now);
+        }
+        return now >= next && now - lastFetchMs >= SIX_HOURS_MS;
+    }
+
+    /** An unreachable server is tried again at most once an hour. */
+    static boolean mayTry(long lastAttemptMs, long now) { return lastAttemptMs <= 0 || now - lastAttemptMs >= HOUR_MS; }
 
     /** "Fuel ≈ RM 3.10 with BUDI95 · RM 6.00 without (saved RM 2.90)", rounded to 10 sen; null without a fuel estimate. */
     static String costLine(float litres, double budi95, double ron95) {

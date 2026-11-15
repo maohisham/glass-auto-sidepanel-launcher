@@ -143,6 +143,9 @@ final class Settings {
                 Double.longBitsToDouble(sp.getLong("fuelRon95", Double.doubleToLongBits(0)))};
     }
     long fuelFetchedAt() { return sp.getLong("fuelFetchedAt", 0); }
+    /** The date the saved prices apply from, "yyyy-MM-dd", or empty. */
+    String fuelPriceDate() { return sp.getString("fuelPriceDate", ""); }
+    void setFuelPriceDate(String d) { sp.edit().putString("fuelPriceDate", d == null ? "" : d).apply(); }
     void setFuelPrices(double budi95, double ron95, long fetchedAt) {
         sp.edit().putLong("fuelBudi95", Double.doubleToLongBits(budi95)).putLong("fuelRon95", Double.doubleToLongBits(ron95))
                 .putLong("fuelFetchedAt", fetchedAt).apply();
