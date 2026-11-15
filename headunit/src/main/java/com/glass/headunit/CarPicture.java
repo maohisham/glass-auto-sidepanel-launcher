@@ -33,19 +33,20 @@ final class CarPicture {
         if (f.exists() && !f.delete()) Spike.log("car picture: could not remove " + f.getName());
     }
 
-    /** Reads the picture the user chose, crops it to the card's shape, and keeps it for that car. False if it could not be read. */
-    static boolean saveFrom(Context ctx, String carId, Uri source) {
+    /** Reads the picture the user chose, crops it to the card's shape, and keeps it for that car. Returns a PictureAccess result. */
+    static int saveFrom(Context ctx, String carId, Uri source) {
+        Spike.log("car picture: reading a " + PictureAccess.describe(source.getScheme(), source.getAuthority()));
         try {
             BitmapFactory.Options bounds = new BitmapFactory.Options();
             bounds.inJustDecodeBounds = true;
             try (InputStream in = ctx.getContentResolver().openInputStream(source)) { BitmapFactory.decodeStream(in, null, bounds); }
-            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return false;
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) { Spike.log("car picture: the file is not a picture"); return PictureAccess.NOT_A_PICTURE; }
 
             BitmapFactory.Options opts = new BitmapFactory.Options();
             opts.inSampleSize = CardCrop.sampleSize(bounds.outWidth, STORED_WIDTH);
             Bitmap decoded;
             try (InputStream in = ctx.getContentResolver().openInputStream(source)) { decoded = BitmapFactory.decodeStream(in, null, opts); }
-            if (decoded == null) return false;
+            if (decoded == null) { Spike.log("car picture: the picture could not be decoded"); return PictureAccess.NOT_A_PICTURE; }
 
             int[] r = CardCrop.rect(decoded.getWidth(), decoded.getHeight(), CardCrop.ASPECT);
             Bitmap cropped = Bitmap.createBitmap(decoded, r[0], r[1], r[2], r[3]);
@@ -54,12 +55,12 @@ final class CarPicture {
             File tmp = new File(ctx.getFilesDir(), CardCrop.fileName(carId) + ".tmp");
             try (FileOutputStream fo = new FileOutputStream(tmp)) { out.compress(Bitmap.CompressFormat.JPEG, 85, fo); }
             File dest = file(ctx, carId);
-            if (!tmp.renameTo(dest)) { Spike.log("car picture: could not save " + dest.getName()); return false; }
+            if (!tmp.renameTo(dest)) { Spike.log("car picture: could not save " + dest.getName()); return PictureAccess.SAVE_FAILED; }
             Spike.log("car picture: saved " + dest.getName() + " (" + out.getWidth() + "x" + out.getHeight() + ")");
-            return true;
+            return PictureAccess.OK;
         } catch (Exception | OutOfMemoryError e) {
             Spike.log("car picture: could not read the picture (" + e.getClass().getSimpleName() + ")");
-            return false;
+            return PictureAccess.classify(e.getClass().getSimpleName());
         }
     }
 }

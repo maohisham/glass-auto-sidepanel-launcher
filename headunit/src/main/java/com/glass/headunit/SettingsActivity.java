@@ -16,7 +16,7 @@ import android.widget.ScrollView;
 public class SettingsActivity extends Activity {
 
     static final String EXTRA_FULL = "full", EXTRA_WAS_SPLIT = "wasSplit";
-    private static final int REQ_PICTURE = 4721;
+    private static final int REQ_PICTURE = 4721, REQ_PHOTOS = 4722;
 
     private Settings s;
     private SettingsWidgets w;
@@ -26,6 +26,8 @@ public class SettingsActivity extends Activity {
     private LinearLayout rail, body;
     private ScrollView scroll;
     private String pickingFor = "";
+    private String pendingCar = "";        // a picture waiting for the photo permission, read again once it is allowed
+    private android.net.Uri pendingPicture;
     private boolean full, wasSplit;   // opened over the whole screen; closing it lays the panel and map out again if they were split
 
     @Override
@@ -34,6 +36,11 @@ public class SettingsActivity extends Activity {
         setTitle("Settings");
         s = Settings.of(this);
         full = getIntent().getBooleanExtra(EXTRA_FULL, false);
+        if (b != null) {   // Android may close Settings while the gallery is open; keep which car the picture is for
+            pickingFor = b.getString("pickingFor", "");
+            pendingCar = b.getString("pendingCar", "");
+            pendingPicture = b.getParcelable("pendingPicture");
+        }
         wasSplit = getIntent().getBooleanExtra(EXTRA_WAS_SPLIT, false);
         Configuration c = getResources().getConfiguration();
         boolean night = (c.uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
@@ -143,20 +150,45 @@ public class SettingsActivity extends Activity {
     }
 
     @Override
+    protected void onSaveInstanceState(Bundle out) {
+        super.onSaveInstanceState(out);
+        out.putString("pickingFor", pickingFor);
+        out.putString("pendingCar", pendingCar);
+        out.putParcelable("pendingPicture", pendingPicture);
+    }
+
+    @Override
     protected void onActivityResult(int code, int result, Intent data) {
         super.onActivityResult(code, result, data);
         if (code == HomeLauncher.REQUEST_CODE) rebuildBody();
         if (code == REQ_PICTURE && result == RESULT_OK && data != null && data.getData() != null && !pickingFor.isEmpty()) {
-            final android.net.Uri uri = data.getData();
-            final String carId = pickingFor;
-            new Thread(() -> {
-                boolean ok = CarPicture.saveFrom(this, carId, uri);
-                runOnUiThread(() -> {
-                    android.widget.Toast.makeText(this, ok ? "Picture saved" : "Could not read that picture", android.widget.Toast.LENGTH_SHORT).show();
-                    rebuildBody();
-                });
-            }, "car-picture").start();
+            readPicture(pickingFor, data.getData(), false);
+        } else if (code == REQ_PICTURE) {
+            Spike.log("car picture: the picker came back without a picture (result " + result + (pickingFor.isEmpty() ? ", no car waiting" : "") + ")");
         }
+    }
+
+    /**
+     * Reads the chosen picture off the main thread. A picture the panel may not open (some galleries hand back a plain
+     * file path) gets one request for the photo permission, then one more try.
+     */
+    private void readPicture(String carId, android.net.Uri uri, boolean asked) {
+        new Thread(() -> {
+            int r = CarPicture.saveFrom(this, carId, uri);
+            runOnUiThread(() -> {
+                String perm = PictureAccess.permission(android.os.Build.VERSION.SDK_INT);
+                boolean granted = checkSelfPermission(perm) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+                if (PictureAccess.askAndRetry(r, granted, asked)) {
+                    Spike.log("car picture: asking for the photo permission, then reading it again");
+                    pendingCar = carId;
+                    pendingPicture = uri;
+                    requestPermissions(new String[]{perm}, REQ_PHOTOS);
+                    return;
+                }
+                android.widget.Toast.makeText(this, PictureAccess.message(r), android.widget.Toast.LENGTH_LONG).show();
+                rebuildBody();
+            });
+        }, "car-picture").start();
     }
 
     /** When the screen is already split, moves the divider to the new ratio at once (needs the window helper). */
@@ -173,6 +205,16 @@ public class SettingsActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int code, String[] perms, int[] results) {
         super.onRequestPermissionsResult(code, perms, results);
+        if (code == REQ_PHOTOS && pendingPicture != null && !pendingCar.isEmpty()) {
+            boolean ok = results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED;
+            Spike.log("car picture: photo permission " + (ok ? "allowed, reading the picture again" : "refused"));
+            android.net.Uri uri = pendingPicture;
+            String car = pendingCar;
+            pendingPicture = null;
+            pendingCar = "";
+            if (ok) { readPicture(car, uri, true); return; }
+            android.widget.Toast.makeText(this, PictureAccess.message(PictureAccess.UNREADABLE), android.widget.Toast.LENGTH_LONG).show();
+        }
         rebuildBody();
     }
 }
