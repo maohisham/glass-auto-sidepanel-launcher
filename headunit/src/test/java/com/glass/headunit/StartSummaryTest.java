@@ -1,0 +1,26 @@
+package com.glass.headunit;
+
+import static org.junit.Assert.*;
+
+import org.junit.Test;
+
+import java.util.Arrays;
+
+public class StartSummaryTest {
+    @Test public void oncePerStart() { StartSummary.arm("test"); assertTrue(StartSummary.take()); assertFalse(StartSummary.take()); }
+    @Test public void greetings() {
+        assertEquals("Good morning", StartSummary.greeting(8)); assertEquals("Good afternoon", StartSummary.greeting(14));
+        assertEquals("Good evening", StartSummary.greeting(21)); assertEquals("Good evening", StartSummary.greeting(2));
+    }
+    @Test public void fullCard() {
+        assertEquals(Arrays.asList("Good morning", "☀ 29°C · rain from 5 pm", "Zohor 1:12 pm · in 2h 40m", "Last drive: 82 · 24 km"),
+                StartSummary.lines(8, "☀ 29°C", "5 pm", "Zohor 1:12 pm · in 2h 40m", 82, 24.2f));
+    }
+    @Test public void dryAndNoDrives() {
+        assertEquals(Arrays.asList("Good evening", "☁ 26°C · dry today", "Isyak 8:30 pm · in 15m"),
+                StartSummary.lines(20, "☁ 26°C", null, "Isyak 8:30 pm · in 15m", -1, 0f));
+    }
+    @Test public void offlineLeavesWeatherOut() {
+        assertEquals(Arrays.asList("Good morning", "Subuh 5:58 am · in 20m"), StartSummary.lines(5, null, null, "Subuh 5:58 am · in 20m", -1, 0f));
+    }
+}

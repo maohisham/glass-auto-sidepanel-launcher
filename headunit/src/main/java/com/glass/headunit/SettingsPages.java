@@ -131,6 +131,7 @@ final class SettingsPages {
         zone.addView(w.note(s.manualZone().isEmpty() ? "Automatic: follows the GPS" : "Manual: " + s.manualZone()));
         zone.addView(w.bigButton("Choose a zone…", () -> a.startActivity(new Intent(a, ZonePickerActivity.class))));
         box.addView(zone);
+        box.addView(w.switchRow("Start-of-drive summary", "A short card when the car starts; it goes away by itself", s.startSummary(), s::setStartSummary));
         box.addView(w.switchRow("Open Settings full screen", "Off: Settings opens in the panel. Needs the window helper.", s.settingsFullScreen(), s::setSettingsFullScreen));
     }
 

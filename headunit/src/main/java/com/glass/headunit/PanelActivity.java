@@ -128,6 +128,60 @@ public class PanelActivity extends Activity {
 
     /** Once a minute: the Sun theme switches at Maghrib and Syuruk. */
     private String rainShown = "";
+    private boolean summaryPending;
+    private final Runnable showSummary = this::showSummary;
+
+    /** The start-of-drive card over the panel: it fades after 10 seconds, a tap closes it sooner. */
+    private void showSummary() {
+        summaryPending = false;
+        java.util.Calendar now = java.util.Calendar.getInstance();
+        int hour = now.get(java.util.Calendar.HOUR_OF_DAY);
+        String weatherNow = lastWeather == null ? null : lastWeather.emoji + " " + Math.round(lastWeather.tempC) + "°C";
+        String rainLater = null;
+        if (forecast != null) {
+            int i = RainSoon.firstWet(forecast.hours, hour, 23 - hour);
+            if (i >= 0) rainLater = forecast.hours.get(i).label;
+        }
+        String prayerLine = lastPrayer == null || lastPrayer.nextName.isEmpty() ? null
+                : lastPrayer.nextName + " " + Prayer.to12(lastPrayer.nextTime) + " · in " + Prayer.untilNext(lastPrayer);
+        int score = -1;
+        float km = 0f;
+        long latest = 0;
+        for (DriveStats.Drive d : DriveLog.all(this)) if (d.start > latest) { latest = d.start; score = d.score; km = d.km; }
+        java.util.List<String> lines = StartSummary.lines(hour, weatherNow, rainLater, prayerLine, score, km);
+
+        boolean dark = Themes.dark(this);
+        final android.widget.LinearLayout card = new android.widget.LinearLayout(this);
+        card.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = Glass.dp(this, 20);
+        card.setPadding(pad, pad, pad, pad);
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setColor(PanelStyle.bg(dark));
+        bg.setCornerRadius(Glass.dp(this, 20));
+        bg.setStroke(Glass.dp(this, 1), dark ? 0x4DFFFFFF : 0x330A1226);
+        card.setBackground(bg);
+        card.setElevation(Glass.dp(this, 8));
+        for (int i = 0; i < lines.size(); i++) {
+            android.widget.TextView t = new android.widget.TextView(this);
+            t.setText(lines.get(i));
+            t.setTextColor(PanelStyle.fg(dark));
+            t.setTextSize(i == 0 ? 22f : 18f);
+            if (i == 0) t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            t.setPadding(0, i == 0 ? 0 : Glass.dp(this, 6), 0, 0);
+            card.addView(t);
+        }
+        android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(-1, -2, android.view.Gravity.CENTER);
+        int m = Glass.dp(this, 24);
+        lp.setMargins(m, m, m, m);
+        final Runnable close = () -> {
+            if (card.getParent() == null) return;
+            card.animate().alpha(0f).setDuration(600).withEndAction(() -> root.removeView(card)).start();
+        };
+        card.setOnClickListener(v -> { if (card.getParent() != null) { Spike.log("summary: closed (tap)"); root.removeView(card); } });
+        root.addView(card, lp);
+        Spike.log("summary: shown (" + lines.size() + " lines)");
+        handler.postDelayed(() -> { if (card.getParent() != null) { Spike.log("summary: closed (timeout)"); close.run(); } }, 10_000);
+    }
 
     /** The rain heads-up in the weather line: from the forecast, from the current hour. */
     private void updateRain() {
@@ -333,6 +387,10 @@ public class PanelActivity extends Activity {
         }
         follower = new MediaFollower(this, n -> { lastNow = n; panel.showNowPlaying(n); });
         controller = new PanelController(this, (p, w, off, loc) -> { onData(p, w); panel.showData(p, w, off, loc); });
+        if (Settings.of(this).startSummary() && StartSummary.take()) {
+            summaryPending = true;
+            handler.postDelayed(showSummary, 4000);   // a moment for the weather and prayer data to arrive
+        }
         controller.setForecastListener(f -> { forecast = f; if (weatherScreen != null) weatherScreen.setForecast(f); updateRain(); });
         panel.setControls(new PanelView.Controls() {
             @Override public void play() { follower.play(); }
@@ -401,6 +459,11 @@ public class PanelActivity extends Activity {
         super.onStop();
         handler.removeCallbacks(tick);
         handler.removeCallbacks(demoStep);
+        if (summaryPending) {   // went away before the card showed: keep it for the next time the panel is in front
+            handler.removeCallbacks(showSummary);
+            summaryPending = false;
+            StartSummary.arm("not shown yet");
+        }
         hidePicker();
         hideApps();
         hidePrayer();

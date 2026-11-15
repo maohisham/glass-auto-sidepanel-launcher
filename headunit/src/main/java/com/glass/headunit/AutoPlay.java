@@ -33,7 +33,7 @@ final class AutoPlay {
                 boolean wake = AutoPlayPolicy.isWake(screenOffAt, now);
                 Spike.log("screen on" + (screenOffAt > 0 ? " after " + (now - screenOffAt) / 1000 + " s off" : "") + (wake ? ": a wake from sleep" : ""));
                 screenOffAt = 0;
-                if (wake) rearm(c, "the unit woke from sleep");
+                if (wake) { rearm(c, "the unit woke from sleep"); StartSummary.arm("wake"); }
             }
         }, f);
     }

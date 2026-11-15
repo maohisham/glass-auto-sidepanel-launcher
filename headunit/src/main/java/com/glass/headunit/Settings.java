@@ -128,4 +128,8 @@ final class Settings {
     /** Open Settings over the whole screen instead of inside the panel (needs the window helper). Off by default. */
     boolean settingsFullScreen() { return sp.getBoolean("settingsFullScreen", false); }
     void setSettingsFullScreen(boolean v) { sp.edit().putBoolean("settingsFullScreen", v).apply(); }
+
+    /** The short card shown once each time the car starts. On by default. */
+    boolean startSummary() { return sp.getBoolean("startSummary", true); }
+    void setStartSummary(boolean v) { sp.edit().putBoolean("startSummary", v).apply(); }
 }
