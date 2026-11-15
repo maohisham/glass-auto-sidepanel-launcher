@@ -158,6 +158,21 @@ public class PanelActivity extends Activity {
     private boolean summaryPending;
     private final Runnable showSummary = this::showSummary;
 
+    /** The weekly RON95 prices for the last drive's cost: at most once a week, kept on the unit for offline use. */
+    private void fetchFuelPricesIfDue() {
+        final Settings st = Settings.of(this);
+        if (!FuelPrice.due(st.fuelFetchedAt(), System.currentTimeMillis())) return;
+        new Thread(() -> {
+            double[] p = FuelPrice.parse(Prayer.get(FuelPrice.URL));
+            if (p == null || p[0] <= 0) {
+                Spike.log("fuel price: could not fetch, keeping RM " + String.format(java.util.Locale.US, "%.2f", st.fuelPrices()[0]));
+                return;
+            }
+            st.setFuelPrices(p[0], p[1], System.currentTimeMillis());
+            Spike.log(String.format(java.util.Locale.US, "fuel price: RON95 BUDI95 RM %.2f, unsubsidised RM %.2f", p[0], p[1]));
+        }, "fuel-price").start();
+    }
+
     /** Shows the start-of-drive card once after a new start, a moment later so the weather and prayer data can arrive. */
     private void checkSummary() {
         if (summaryPending || !StartSummary.takeIfOn(Settings.of(this).startSummary())) return;
@@ -178,11 +193,12 @@ public class PanelActivity extends Activity {
         }
         String prayerLine = lastPrayer == null || lastPrayer.nextName.isEmpty() ? null
                 : lastPrayer.nextName + " " + Prayer.to12(lastPrayer.nextTime) + " · in " + Prayer.untilNext(lastPrayer);
-        int score = -1;
-        float km = 0f;
-        long latest = 0;
-        for (DriveStats.Drive d : DriveLog.all(this)) if (d.start > latest) { latest = d.start; score = d.score; km = d.km; }
-        java.util.List<String> lines = StartSummary.lines(hour, weatherNow, rainLater, prayerLine, score, km);
+        DriveStats.Drive last = null;
+        for (DriveStats.Drive d : DriveLog.all(this)) if (last == null || d.start > last.start) last = d;
+        double[] price = Settings.of(this).fuelPrices();
+        String driveLine = last == null ? null : StartSummary.driveLine(last.score, last.km, last.sec);
+        String fuelLine = last == null ? null : FuelPrice.costLine(last.fuelL, price[0], price[1]);
+        java.util.List<String> lines = StartSummary.lines(hour, weatherNow, rainLater, prayerLine, driveLine, fuelLine);
 
         boolean dark = Themes.dark(this);
         final android.widget.LinearLayout card = new android.widget.LinearLayout(this);
@@ -422,6 +438,7 @@ public class PanelActivity extends Activity {
         follower = new MediaFollower(this, n -> { lastNow = n; panel.showNowPlaying(n); });
         controller = new PanelController(this, (p, w, off, loc) -> { onData(p, w); panel.showData(p, w, off, loc); });
         checkSummary();
+        fetchFuelPricesIfDue();
         controller.setForecastListener(f -> { forecast = f; if (weatherScreen != null) weatherScreen.setForecast(f); updateRain(); });
         panel.setControls(new PanelView.Controls() {
             @Override public void play() { follower.play(); }

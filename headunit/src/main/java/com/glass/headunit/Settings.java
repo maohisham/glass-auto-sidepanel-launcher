@@ -136,4 +136,15 @@ final class Settings {
     /** Raise the music a step at 80 km/h and another at 100, for road noise. Off by default. */
     boolean speedVolume() { return sp.getBoolean("speedVolume", false); }
     void setSpeedVolume(boolean v) { sp.edit().putBoolean("speedVolume", v).apply(); }
+
+    /** The last fetched RON95 prices in RM: {BUDI95, unsubsidised}; RM 1.99 and 0 (unknown) before any fetch worked. */
+    double[] fuelPrices() {
+        return new double[]{Double.longBitsToDouble(sp.getLong("fuelBudi95", Double.doubleToLongBits(FuelPrice.FALLBACK_BUDI95))),
+                Double.longBitsToDouble(sp.getLong("fuelRon95", Double.doubleToLongBits(0)))};
+    }
+    long fuelFetchedAt() { return sp.getLong("fuelFetchedAt", 0); }
+    void setFuelPrices(double budi95, double ron95, long fetchedAt) {
+        sp.edit().putLong("fuelBudi95", Double.doubleToLongBits(budi95)).putLong("fuelRon95", Double.doubleToLongBits(ron95))
+                .putLong("fuelFetchedAt", fetchedAt).apply();
+    }
 }

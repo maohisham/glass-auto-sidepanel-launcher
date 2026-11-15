@@ -37,13 +37,21 @@ final class StartSummary {
         return "Good evening";
     }
 
+    /** "Last drive: 82 · 24 km · 35 min", or "… · 1 h 05 min" from an hour up. */
+    static String driveLine(int score, float km, long sec) {
+        long min = Math.max(0, Math.round(sec / 60.0));
+        String time = min < 60 ? min + " min" : (min / 60) + " h " + String.format(java.util.Locale.US, "%02d", min % 60) + " min";
+        return "Last drive: " + score + " · " + Math.round(km) + " km · " + time;
+    }
+
     /** The card's lines; a line whose data is missing is left out. rainLater is the hour rain is due today, or null. */
-    static List<String> lines(int hour, String weatherNow, String rainLater, String prayerLine, int lastScore, float lastKm) {
+    static List<String> lines(int hour, String weatherNow, String rainLater, String prayerLine, String driveLine, String fuelLine) {
         List<String> out = new ArrayList<>();
         out.add(greeting(hour));
         if (weatherNow != null && !weatherNow.isEmpty()) out.add(weatherNow + " · " + (rainLater == null ? "dry today" : "rain from " + rainLater));
         if (prayerLine != null && !prayerLine.isEmpty()) out.add(prayerLine);
-        if (lastScore >= 0) out.add("Last drive: " + lastScore + " · " + Math.round(lastKm) + " km");
+        if (driveLine != null && !driveLine.isEmpty()) out.add(driveLine);
+        if (fuelLine != null && !fuelLine.isEmpty()) out.add(fuelLine);
         return out;
     }
 }
