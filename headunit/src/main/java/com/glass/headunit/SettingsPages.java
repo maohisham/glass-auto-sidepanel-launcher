@@ -36,6 +36,18 @@ final class SettingsPages {
         applyRatio = a::applyRatioNow;
     }
 
+    /** The open or closed folds, to keep through a rebuild of the screen (a theme change, for example). */
+    android.os.Bundle saveFolds() {
+        android.os.Bundle b = new android.os.Bundle();
+        for (Map.Entry<String, Boolean> e : folds.entrySet()) b.putBoolean(e.getKey(), e.getValue());
+        return b;
+    }
+
+    void restoreFolds(android.os.Bundle b) {
+        if (b == null) return;
+        for (String k : b.keySet()) folds.put(k, b.getBoolean(k));
+    }
+
     View build(String key) {
         LinearLayout box = new LinearLayout(a);
         box.setOrientation(LinearLayout.VERTICAL);

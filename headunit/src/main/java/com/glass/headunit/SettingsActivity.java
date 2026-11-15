@@ -26,6 +26,7 @@ public class SettingsActivity extends Activity {
     private LinearLayout rail, body;
     private ScrollView scroll;
     private String pickingFor = "";
+    private int pendingScroll = -1;   // the scroll position to go back to after a rebuild
     private String pendingCar = "";        // a picture waiting for the photo permission, read again once it is allowed
     private android.net.Uri pendingPicture;
     private boolean full, wasSplit;   // opened over the whole screen; closing it lays the panel and map out again if they were split
@@ -48,6 +49,10 @@ public class SettingsActivity extends Activity {
         wide = SettingsLayout.wide(c.screenWidthDp);
         w = new SettingsWidgets(this, dark);
         pages = new SettingsPages(this, s, w, dark);
+        if (b != null) {   // rebuilt (a theme change, a resize): keep the open sections and where the page was scrolled
+            pages.restoreFolds(b.getBundle("folds"));
+            pendingScroll = b.getInt("scrollY", -1);
+        }
         group = SettingsGroups.indexOf(s.settingsGroup());
         Spike.log("settings: opened " + (wide ? "wide" : "narrow") + " (" + c.screenWidthDp + " dp) on " + SettingsGroups.KEYS[group]);
 
@@ -118,7 +123,8 @@ public class SettingsActivity extends Activity {
 
     /** keepScroll false opens the group at the top (a new group was chosen in the rail). */
     private void rebuildBody(boolean keepScroll) {
-        final int y = keepScroll ? scroll.getScrollY() : 0;
+        final int y = !keepScroll ? 0 : pendingScroll >= 0 ? pendingScroll : scroll.getScrollY();
+        pendingScroll = -1;
         buildRail();
         body.removeAllViews();
         String key = SettingsGroups.KEYS[group];
@@ -154,6 +160,8 @@ public class SettingsActivity extends Activity {
     protected void onSaveInstanceState(Bundle out) {
         super.onSaveInstanceState(out);
         out.putString("pickingFor", pickingFor);
+        out.putBundle("folds", pages.saveFolds());
+        out.putInt("scrollY", scroll.getScrollY());
         out.putString("pendingCar", pendingCar);
         out.putParcelable("pendingPicture", pendingPicture);
     }
