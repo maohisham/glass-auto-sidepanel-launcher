@@ -44,19 +44,14 @@ public class BubbleService extends Service {
     private String shownPkg;                  // the app whose icon the media bubble shows, or null for the music note
     private final android.os.Handler uiHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private PlayerPicker picker;
+    private Boolean drawnDark;   // the colours the bubbles were drawn in
+    private final Runnable themeCheck = () -> { if (ThemeRedraw.needed(drawnDark, isDark())) sync(); else uiHandler.postDelayed(this.themeCheck, 60_000); };
+    private final android.content.SharedPreferences.OnSharedPreferenceChangeListener pinsChanged =
+            (prefs, key) -> { if (picker != null) picker.refresh(); };   // a playlist shared while the bubble's picker is open
     private AppsGrid appsGrid;
     private int anchorX, anchorY;
 
-    /** Starts or stops the bubbles to match the settings and the permission. */
-    /** Draws the bubbles again in the current colours (the Sun theme switched), when one is showing. */
-    static void restyle(Context ctx) {
-        Settings s = Settings.of(ctx);
-        if (!s.bubble() && !s.appsBubble()) return;
-        Spike.log("bubbles: redrawn in the new theme");
-        ctx.stopService(new Intent(ctx, BubbleService.class));
-        apply(ctx);
-    }
-
+    /** Starts or stops the bubbles to match the settings and the permission. It also redraws them when the colours changed. */
     static void apply(Context ctx) {
         Intent i = new Intent(ctx, BubbleService.class);
         Settings s = Settings.of(ctx);
@@ -65,6 +60,12 @@ public class BubbleService extends Service {
     }
 
     @Override public IBinder onBind(Intent i) { return null; }
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        getSharedPreferences("pins", MODE_PRIVATE).registerOnSharedPreferenceChangeListener(pinsChanged);
+    }
 
     @Override
     public int onStartCommand(Intent i, int flags, int startId) {
@@ -92,6 +93,16 @@ public class BubbleService extends Service {
         Settings s = Settings.of(this);
         if (count() == 0) startAnchor(s);
         boolean dark = isDark();
+        if (ThemeRedraw.needed(drawnDark, dark)) {
+            // the Sun theme switched: draw the bubbles again in the new colours (any open picker keeps its own)
+            Spike.log("bubbles: redrawn " + (dark ? "dark" : "light"));
+            if (mediaBubble != null) { remove(mediaBubble); mediaBubble = null; }
+            if (appsBubble != null) { remove(appsBubble); appsBubble = null; }
+            if (backBubble != null) { remove(backBubble); backBubble = null; }
+        }
+        drawnDark = dark;
+        uiHandler.removeCallbacks(themeCheck);
+        uiHandler.postDelayed(themeCheck, 60_000);   // the Sun theme can switch while the panel isn't in front
 
         if (s.bubble() && mediaBubble == null) {
             mediaBubble = new BubbleFace(this, dark, size(), Icon.PLAYER);
@@ -321,6 +332,7 @@ public class BubbleService extends Service {
     @Override
     public void onDestroy() {
         uiHandler.removeCallbacksAndMessages(null);
+        getSharedPreferences("pins", MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(pinsChanged);
         if (msm != null) { try { msm.removeOnActiveSessionsChangedListener(sessionsListener); } catch (Exception ignored) { } }
         for (MediaController c : watched) c.unregisterCallback(sessionCallback);
         watched.clear();

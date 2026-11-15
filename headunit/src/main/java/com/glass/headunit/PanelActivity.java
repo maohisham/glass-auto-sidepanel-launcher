@@ -262,7 +262,9 @@ public class PanelActivity extends Activity {
         // over the lyrics area only, so the song's buttons above stay free
         android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(-1, -2, android.view.Gravity.TOP | android.view.Gravity.CENTER_HORIZONTAL);
         int m = Glass.dp(this, 16);
-        lp.setMargins(m, panel.lyricsTop() + Glass.dp(this, 8), m, m);
+        card.measure(android.view.View.MeasureSpec.makeMeasureSpec(Math.max(0, root.getWidth() - 2 * m), android.view.View.MeasureSpec.EXACTLY),
+                android.view.View.MeasureSpec.makeMeasureSpec(0, android.view.View.MeasureSpec.UNSPECIFIED));
+        lp.setMargins(m, SummaryPlace.top(panel.lyricsTop(), root.getHeight(), card.getMeasuredHeight(), Glass.dp(this, 8), m), m, m);
         final Runnable close = () -> {
             if (card.getParent() == null) return;
             card.animate().alpha(0f).setDuration(600).withEndAction(() -> root.removeView(card)).start();
@@ -295,7 +297,7 @@ public class PanelActivity extends Activity {
             if (weatherScreen != null) { hideWeather(); showWeather(); }
             if (driveScreen != null) { hideDrive(); showDrive(); }
             if (prayerScreen != null) { hidePrayer(); showPrayer(); }
-            BubbleService.restyle(this);
+            if (!demo) BubbleService.apply(this);   // redraws the bubbles in the new colours
         }
     }
 
@@ -327,11 +329,9 @@ public class PanelActivity extends Activity {
     /** A small box over the panel: "Playlist: <name>" or "Just this song". Tapping outside it cancels. */
     private android.view.View pinChoice;   // the "Pin to Quick picks" choice, while it is open
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (picker != null) picker.refresh();   // a playlist shared to the panel while the picker was open shows up now
-    }
+    /** A playlist shared to the panel while the picker is open shows up at once (in split screen the panel never pauses). */
+    private final android.content.SharedPreferences.OnSharedPreferenceChangeListener pinsChanged =
+            (prefs, key) -> { if (picker != null) picker.refresh(); };
 
     private void showPinChoice(java.util.List<Pin> options, android.graphics.Bitmap cover) {
         Settings s = Settings.of(this);
@@ -474,6 +474,7 @@ public class PanelActivity extends Activity {
     protected void onStart() {
         super.onStart();
         ReturnButton.hide(this);   // the panel is back in front: the floating way back is no longer needed
+        getSharedPreferences("pins", MODE_PRIVATE).registerOnSharedPreferenceChangeListener(pinsChanged);
         panel.refreshApps();       // a map app may have been installed or chosen while the panel was away
         applyStyle(getResources().getConfiguration());
         handler.post(tick);
@@ -567,6 +568,7 @@ public class PanelActivity extends Activity {
         super.onStop();
         handler.removeCallbacks(tick);
         handler.removeCallbacks(demoStep);
+        getSharedPreferences("pins", MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(pinsChanged);
         if (summaryPending) {   // went away before the card showed: keep it for the next time the panel is in front
             handler.removeCallbacks(showSummary);
             summaryPending = false;
