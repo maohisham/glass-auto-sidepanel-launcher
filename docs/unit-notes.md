@@ -1,23 +1,8 @@
-# Installing Glass Panel on a head unit
+# Notes from testing on each unit
 
-The APK is `docs/GlassSidePanel-0.8-headunit.apk`. It is always signed with the same key, so a newer APK installs over an older one without uninstalling (keep `headunit/keystore/` safe: a different key forces an uninstall).
+What was found while setting up and testing Glass Panel on each device. For installing it, see the [README](../README.md#install).
 
-## Put the APK on the unit
-
-- **Carlinkit Ultra 2 (adb):** `adb install -r docs/GlassSidePanel-0.8-headunit.apk`
-- **Eonon UX7ST (no adb):** copy the APK to Google Drive from the Mac, open Drive on the unit, tap the file, and allow "install unknown apps" for Drive the first time.
-
-## Turn things on (once per unit, by hand in Settings)
-
-1. **Notification access** for Glass Panel, so it can read what is playing (the panel shows a button for this).
-2. **Location**, so the prayer zone and weather follow the car.
-3. **Window helper** (Accessibility → Glass Panel), only if you want split-screen to start by itself at boot.
-4. **Display over other apps**, only if you want the floating bubble. It also lets the app open itself at boot if the window helper is off.
-5. If the unit has an auto-start or "allow background start" list, add Glass Panel to it.
-
-Then open Glass Panel → Settings. The "Setup" list at the bottom shows what is still missing.
-
-## First run on each unit
+## Split-screen test on each unit
 
 Open Settings → "Split-screen test", press each button and then "Open the log" → "Copy the log". The positions the divider reaches tell us what ratios that unit allows. Put the answers in the table below.
 
