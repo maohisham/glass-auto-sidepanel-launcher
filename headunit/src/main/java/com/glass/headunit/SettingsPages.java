@@ -221,7 +221,7 @@ final class SettingsPages {
         list.addView(check("Display over other apps (floating bubble)", android.provider.Settings.canDrawOverlays(a),
                 () -> Intents.safeStart(a, new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:" + a.getPackageName())), "display over other apps")));
         list.addView(check("Window helper (auto split-screen at start)", a.accessibilityOn(),
-                () -> Intents.safeStart(a, new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS), "accessibility settings")));
+                () -> SplitHelperService.openSwitch(a)));
         list.addView(w.note("The Android Auto button opens full screen only while the window helper is on."));
 
         boolean homeOn = HomeLauncher.isEnabled(a);

@@ -32,6 +32,25 @@ public class SplitHelperService extends AccessibilityService {
     static boolean isRunning() { return instance != null; }
     static SplitHelperService get() { return instance; }
 
+    /** Whether the window helper is switched on in Android's Accessibility settings (it may be on but not yet connected). */
+    static boolean enabled(android.content.Context c) {
+        String on = android.provider.Settings.Secure.getString(c.getContentResolver(), android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        return on != null && on.contains(c.getPackageName());
+    }
+
+    /** Opens the window helper's own switch, or the Accessibility list when the unit has no page for one service. */
+    static void openSwitch(android.app.Activity a) {
+        try {
+            Intent i = new Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS")
+                    .putExtra(Intent.EXTRA_COMPONENT_NAME, new android.content.ComponentName(a, SplitHelperService.class).flattenToString());
+            a.startActivity(i);
+            Spike.log("helper: opened its switch");
+        } catch (Exception e) {
+            Spike.log("helper: no page for its switch (" + e.getClass().getSimpleName() + "), opening the Accessibility list");
+            Intents.safeStart(a, new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS), "accessibility settings");
+        }
+    }
+
     @Override
     protected void onServiceConnected() {
         instance = this;

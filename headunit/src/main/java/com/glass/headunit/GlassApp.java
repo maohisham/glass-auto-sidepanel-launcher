@@ -37,5 +37,24 @@ public class GlassApp extends Application {
         });
         AutoPlay.watchScreen(this);
         Spike.log("process started");
+        logLastExit();
+    }
+
+    /** Why the previous run ended and whether the window helper is still on: tells a unit that force-stops the app at power-off. */
+    private void logLastExit() {
+        try {
+            java.util.List<android.app.ApplicationExitInfo> l = getSystemService(android.app.ActivityManager.class)
+                    .getHistoricalProcessExitReasons(getPackageName(), 0, 1);
+            boolean on = SplitHelperService.enabled(this);
+            if (l.isEmpty()) { Spike.log("start: no record of the last run; window helper " + (on ? "on" : "off")); return; }
+            android.app.ApplicationExitInfo x = l.get(0);
+            long agoMin = (System.currentTimeMillis() - x.getTimestamp()) / 60_000L;
+            Spike.log("start: the last run ended " + agoMin + " min ago: " + ExitReason.describe(x.getReason())
+                    + (x.getDescription() != null ? " (" + x.getDescription() + ")" : "")
+                    + "; window helper " + (on ? "on" : "off")
+                    + (!on && ExitReason.turnsHelperOff(x.getReason()) ? ": the force stop switched it off" : ""));
+        } catch (Exception e) {
+            Spike.log("start: could not read the last run (" + e.getClass().getSimpleName() + ")");
+        }
     }
 }
