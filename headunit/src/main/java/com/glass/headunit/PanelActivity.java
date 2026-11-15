@@ -23,6 +23,8 @@ public class PanelActivity extends Activity {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private PanelView panel;
     private android.widget.FrameLayout root;
+    private android.view.View helperBanner;
+    private static boolean helperPromptDismissed;   // "Not now" lasts until the app's next start
     private NowPlaying lastNow;   // what the panel shows now, for pinning it
     private PlayerPicker picker;
     private AppsGrid appsGrid;
@@ -178,6 +180,61 @@ public class PanelActivity extends Activity {
         startActivity(new android.content.Intent(this, SettingsActivity.class));
     }
 
+    /** The window helper was on once but Android has switched it off: a big button straight to its switch. */
+    private void showHelperPromptIfOff() {
+        boolean on = SplitHelperService.enabled(this);
+        boolean show = HelperPrompt.show(on, Settings.of(this).helperWasOn(), helperPromptDismissed);
+        if (helperBanner != null) { root.removeView(helperBanner); helperBanner = null; }
+        if (!show) return;
+        Spike.log("helper: off at panel start, though it was on before; showing the button to turn it on");
+        boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        boolean dark = PanelStyle.isDark(Settings.of(this).theme(), night);
+        int pad = Glass.dp(this, 14);
+        android.widget.LinearLayout box = new android.widget.LinearLayout(this);
+        box.setOrientation(android.widget.LinearLayout.VERTICAL);
+        box.setPadding(pad, pad, pad, pad);
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setColor(PanelStyle.bg(dark));
+        bg.setCornerRadius(Glass.dp(this, 16));
+        bg.setStroke(Glass.dp(this, 2), 0xFFFF5544);
+        box.setBackground(bg);
+        box.setClickable(true);   // taps on the card don't reach the panel underneath
+        android.widget.TextView title = new android.widget.TextView(this);
+        title.setText("Window helper is off");
+        title.setTextSize(20f);
+        title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        title.setTextColor(PanelStyle.fg(dark));
+        box.addView(title);
+        android.widget.TextView sub = new android.widget.TextView(this);
+        sub.setText("Android switched it off. Turn it on for the split screen and the Android Auto button.");
+        sub.setTextSize(15f);
+        sub.setTextColor(PanelStyle.dim(dark));
+        sub.setPadding(0, Glass.dp(this, 4), 0, Glass.dp(this, 10));
+        box.addView(sub);
+        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
+        android.widget.Button turnOn = Glass.textButton(this, "Turn on", dark, () -> SplitHelperService.openSwitch(this));
+        turnOn.setTextSize(17f);
+        turnOn.setBackground(Glass.button(this, dark, false, true, 14));
+        turnOn.setMinHeight(Glass.dp(this, 56));
+        android.widget.Button later = Glass.textButton(this, "Not now", dark, () -> {
+            helperPromptDismissed = true;
+            Spike.log("helper: the turn-on button was put away until the next start");
+            showHelperPromptIfOff();
+        });
+        later.setTextSize(17f);
+        later.setMinHeight(Glass.dp(this, 56));
+        android.widget.LinearLayout.LayoutParams a = new android.widget.LinearLayout.LayoutParams(0, -2, 1f);
+        android.widget.LinearLayout.LayoutParams b = new android.widget.LinearLayout.LayoutParams(0, -2, 1f);
+        b.leftMargin = Glass.dp(this, 8);
+        row.addView(turnOn, a);
+        row.addView(later, b);
+        box.addView(row);
+        android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(-1, -2, android.view.Gravity.TOP);
+        lp.setMargins(pad, pad, pad, 0);
+        helperBanner = box;
+        root.addView(box, lp);
+    }
+
     private void showPicker() {
         if (picker != null) return;
         Settings s = Settings.of(this);
@@ -275,6 +332,7 @@ public class PanelActivity extends Activity {
         applyStyle(getResources().getConfiguration());
         handler.post(tick);
         if (!demo) BubbleService.apply(this);
+        if (!demo) showHelperPromptIfOff();
         DriveTrip.configure(Settings.of(this));   // the trip is for the car chosen in Settings
         panel.setScoreEnabled(Settings.of(this).driveScore());
         lastSpeedAt = 0;
