@@ -82,7 +82,7 @@ public class PanelActivity extends Activity {
         panel = new PanelView(this);
         panel.addOnLayoutChangeListener((v, l, t, r, bt, ol, ot, or, ob) -> publishBounds());
         applyStyle(getResources().getConfiguration());
-        panel.setOnSettings(() -> startActivity(new android.content.Intent(this, SettingsActivity.class)));
+        panel.setOnSettings(this::openSettings);
         panel.setOnPlayer(this::showPicker);
         panel.setOnPrayer(this::showPrayer);
         panel.setOnDrive(this::showDrive);
@@ -163,6 +163,19 @@ public class PanelActivity extends Activity {
         lp.leftMargin = lp.rightMargin = Glass.dp(this, 24);
         shade.addView(box, lp);
         root.addView(shade, new android.widget.FrameLayout.LayoutParams(-1, -1));
+    }
+
+    /** Settings opens inside the panel, or over the whole screen when that is chosen and the window helper can leave the split. */
+    private void openSettings() {
+        Settings s = Settings.of(this);
+        SplitHelperService helper = SplitHelperService.get();
+        if (SettingsOpen.fullScreen(s.settingsFullScreen(), helper != null)) {
+            Spike.log("settings: opening full screen");
+            helper.openSettingsFullScreen();
+            return;
+        }
+        Spike.log("settings: opening in the panel" + (s.settingsFullScreen() ? " (full screen is on but the window helper is off)" : ""));
+        startActivity(new android.content.Intent(this, SettingsActivity.class));
     }
 
     private void showPicker() {

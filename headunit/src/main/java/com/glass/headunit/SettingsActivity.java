@@ -15,6 +15,7 @@ import android.widget.ScrollView;
  */
 public class SettingsActivity extends Activity {
 
+    static final String EXTRA_FULL = "full";
     private static final int REQ_PICTURE = 4721;
 
     private Settings s;
@@ -25,12 +26,14 @@ public class SettingsActivity extends Activity {
     private LinearLayout rail, body;
     private ScrollView scroll;
     private String pickingFor = "";
+    private boolean full;   // opened over the whole screen: closing it lays the panel and map out again
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         setTitle("Settings");
         s = Settings.of(this);
+        full = getIntent().getBooleanExtra(EXTRA_FULL, false);
         Configuration c = getResources().getConfiguration();
         boolean night = (c.uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         boolean dark = PanelStyle.isDark(s.theme(), night);
@@ -66,6 +69,16 @@ public class SettingsActivity extends Activity {
         super.onResume();
         rebuildBody();          // picks up a permission, zone or home app changed while Settings was away
         BubbleService.apply(this); // picks up a permission granted while Settings was away
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        SplitHelperService h = SplitHelperService.get();
+        if (SettingsOpen.restoreOnFinish(full, isFinishing()) && h != null) {
+            Spike.log("settings: closed full screen, laying out the panel and map again");
+            h.restoreLayout();
+        }
     }
 
     private void choose(int i) {

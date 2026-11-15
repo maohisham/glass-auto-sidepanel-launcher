@@ -230,6 +230,26 @@ public class SplitHelperService extends AccessibilityService {
         } else launch(pkg, false);
     }
 
+    /** Opens Settings over the whole screen: leaves the split first when there is one, as for the Android Auto app. */
+    void openSettingsFullScreen() {
+        Runnable open = () -> {
+            Intent i = new Intent(this, SettingsActivity.class).putExtra(SettingsActivity.EXTRA_FULL, true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try { startActivity(i); Spike.log("helper: opened Settings full screen"); }
+            catch (Exception e) { Spike.log("helper: could not open Settings (" + e.getClass().getSimpleName() + ")"); }
+        };
+        if (isSplit()) {
+            Spike.log("helper: leaving the split to open Settings full screen");
+            toggleSplit();
+            handler.postDelayed(open, 1200);
+        } else open.run();
+    }
+
+    /** Lays the panel and map out again after full-screen Settings closed, even within a minute of the last layout. */
+    void restoreLayout() {
+        layoutStartedAt = 0;
+        startLayout();
+    }
+
     boolean toggleSplit() {
         boolean ok = performGlobalAction(GLOBAL_ACTION_TOGGLE_SPLIT_SCREEN);
         Spike.log("helper: toggle split-screen -> " + (ok ? "accepted" : "refused"));
