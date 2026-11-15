@@ -46,8 +46,8 @@ final class PrayerTableView extends LinearLayout {
         if (bar != null) {
             float f = PrayerProgress.fraction(d, nowMs);
             bar.setFraction(f);
-            countdown.setText("in " + Prayer.untilNext(d));
-            percent.setText(Math.round(f * 100) + "%");
+            Changed.set(countdown, "in " + Prayer.untilNext(d));
+            Changed.set(percent, Math.round(f * 100) + "%");
         }
     }
 

@@ -272,6 +272,7 @@ public class PanelActivity extends Activity {
     protected void onStart() {
         super.onStart();
         ReturnButton.hide(this);   // the panel is back in front: the floating way back is no longer needed
+        panel.refreshApps();       // a map app may have been installed or chosen while the panel was away
         applyStyle(getResources().getConfiguration());
         handler.post(tick);
         if (!demo) BubbleService.apply(this);

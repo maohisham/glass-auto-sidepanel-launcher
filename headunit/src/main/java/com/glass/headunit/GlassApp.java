@@ -13,7 +13,7 @@ public class GlassApp extends Application {
         Spike.attachFile(new File(getFilesDir(), "panel.log"));
         final Thread.UncaughtExceptionHandler previous = Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
-            try { Spike.log("CRASH on " + t.getName() + ": " + android.util.Log.getStackTraceString(e)); } catch (Throwable ignored) { }
+            try { Spike.log("CRASH on " + t.getName() + ": " + android.util.Log.getStackTraceString(e)); Spike.flush(); } catch (Throwable ignored) { }
             if (previous != null) previous.uncaughtException(t, e);
         });
         registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {

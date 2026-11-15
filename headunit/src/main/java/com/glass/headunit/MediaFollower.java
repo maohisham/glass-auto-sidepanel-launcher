@@ -311,8 +311,20 @@ final class MediaFollower {
                 } else {
                     in = ctx.getContentResolver().openInputStream(Uri.parse(uri));
                 }
-                if (in != null) { try { bm = BitmapFactory.decodeStream(in); } finally { in.close(); } }
-            } catch (Exception e) { Spike.log("cover: could not load (" + e.getClass().getSimpleName() + ")"); }
+                if (in != null) {
+                    // read the file once, learn its size, then decode it already shrunk: a big cover never sits in memory at full size
+                    byte[] data;
+                    try { data = readCapped(in, 12 * 1024 * 1024); } finally { in.close(); }
+                    if (data != null) {
+                        BitmapFactory.Options o = new BitmapFactory.Options();
+                        o.inJustDecodeBounds = true;
+                        BitmapFactory.decodeByteArray(data, 0, data.length, o);
+                        BitmapFactory.Options d = new BitmapFactory.Options();
+                        d.inSampleSize = CoverPick.sampleFor(o.outWidth, o.outHeight, 256);
+                        bm = BitmapFactory.decodeByteArray(data, 0, data.length, d);
+                    } else Spike.log("cover: too large to load, skipped");
+                }
+            } catch (Exception | OutOfMemoryError e) { Spike.log("cover: could not load (" + e.getClass().getSimpleName() + ")"); }
             final Bitmap result = bm == null ? null : scaled(bm);
             handler.post(() -> {
                 if (gen != generation) return;       // the track changed while we waited
@@ -320,6 +332,18 @@ final class MediaFollower {
                 if (result != null) { cover = result; coverId = uri; publish(); }
             });
         }, "cover").start();
+    }
+
+    /** The whole stream as bytes, or null when it is larger than cap (no cover is that big; don't fill the memory). */
+    private static byte[] readCapped(java.io.InputStream in, int cap) throws java.io.IOException {
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream(64 * 1024);
+        byte[] buf = new byte[16 * 1024];
+        int n;
+        while ((n = in.read(buf)) > 0) {
+            out.write(buf, 0, n);
+            if (out.size() > cap) return null;
+        }
+        return out.toByteArray();
     }
 
     private static Bitmap scaled(Bitmap b) {

@@ -41,4 +41,16 @@ public class SpikeLogTest {
         assertTrue(Spike.dump().contains("line number 4999"));
         Spike.detachForTest();
     }
+
+    @Test
+    public void flushPutsEveryLineOnDisk() throws Exception {
+        File f = new File(tmp.getRoot(), "panel.log");
+        Spike.attachFile(f);
+        for (int i = 0; i < 50; i++) Spike.log("queued line " + i);
+        Spike.flush();                          // what a crash does before the process dies
+        String onDisk = new String(java.nio.file.Files.readAllBytes(f.toPath()));
+        assertTrue(onDisk.contains("queued line 0"));
+        assertTrue(onDisk.contains("queued line 49"));
+        Spike.detachForTest();
+    }
 }

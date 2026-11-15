@@ -19,4 +19,12 @@ final class CoverPick {
         float s = max / (float) longer;
         return new int[]{Math.max(1, Math.round(w * s)), Math.max(1, Math.round(h * s))};
     }
+
+    /** The largest power-of-two shrink that still leaves the longer side at least max, for decoding a big cover small. */
+    static int sampleFor(int w, int h, int max) {
+        int longer = Math.max(w, h), size = 1;
+        if (longer <= 0) return 1;
+        while (longer / (size * 2) >= max) size *= 2;
+        return size;
+    }
 }

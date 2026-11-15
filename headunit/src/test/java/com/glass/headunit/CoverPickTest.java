@@ -29,4 +29,11 @@ public class CoverPickTest {
     public void smallCoversAreLeftAlone() {
         assertArrayEquals(new int[]{120, 120}, CoverPick.targetSize(120, 120, 256));
     }
+
+    @Test public void bigCoversDecodeSmallButNotBelowTheTarget() {
+        assertEquals(8, CoverPick.sampleFor(3000, 3000, 256));    // 375 px, still at least 256
+        assertEquals(4, CoverPick.sampleFor(1024, 512, 256));     // the longer side lands on 256
+        assertEquals(1, CoverPick.sampleFor(300, 300, 256));
+        assertEquals(1, CoverPick.sampleFor(0, 0, 256));          // unknown size: decode as it is
+    }
 }

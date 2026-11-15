@@ -341,6 +341,7 @@ final class PanelView extends LinearLayout {
         headerBlock.addView(stripBox);
 
         banners = new LinearLayout(getContext());
+        bannersShown = null;   // a new, empty notice area: fill it on the next bind
         banners.setOrientation(VERTICAL);
         headerBlock.addView(banners);
 
@@ -512,11 +513,12 @@ final class PanelView extends LinearLayout {
     private void bindTop() {
         bindClock();
         bindWeather();
-        if (prayer == null) prayerText.setText("");
-        else if (prayer.justStarted) prayerText.setText("● " + prayer.currentName + " time now");
+        if (prayer == null) Changed.set(prayerText, "");
+        else if (prayer.justStarted) Changed.set(prayerText, "● " + prayer.currentName + " time now");
         else {
             // the countdown drops to its own line when the strip is too narrow for one line, and has no hour part under an hour
             String line = StripText.build(prayer.nextName, Prayer.to12(prayer.nextTime), Prayer.untilNext(prayer));
+            if (!Changed.text(prayerText.getText(), line)) { updateStrip(); return; }   // the countdown moves once a minute
             android.text.SpannableString sp = new android.text.SpannableString(line);
             int cut = line.indexOf(' ') + 1;
             sp.setSpan(new android.text.style.ForegroundColorSpan(PanelStyle.fg(dark)), cut, line.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -577,9 +579,19 @@ final class PanelView extends LinearLayout {
         build();
     }
 
+    /** Forget the cached map-app lookup (call when the panel comes back to the front: an app may have been installed). */
+    void refreshApps() { mapsCached = null; bannersShown = null; }
+
+    private Boolean mapsCached;
+    private String bannersShown;
+
     private void bindBanners() {
+        boolean access = MediaFollower.hasMediaAccess(getContext());
+        String key = access + "|" + mapsInstalled() + "|" + locationMissing + "|" + (prayer == null) + "|" + offline + "|" + dark;
+        if (!Changed.key(bannersShown, key)) return;
+        bannersShown = key;
         banners.removeAllViews();
-        if (!MediaFollower.hasMediaAccess(getContext())) {
+        if (!access) {
             Button b = Glass.textButton(getContext(), "Allow media access (to show lyrics)", dark,
                     () -> Intents.safeStart(getContext(), new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"), "notification access"));
             LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
@@ -647,7 +659,10 @@ final class PanelView extends LinearLayout {
         if (headerScroll != null) headerScroll.setMaxHeightPx(PanelStyle.headerMaxPx(h));
     }
 
-    boolean mapsInstalled() { return MapAppRepo.selected(getContext()) != null; }
+    boolean mapsInstalled() {
+        if (mapsCached == null) mapsCached = MapAppRepo.selected(getContext()) != null;
+        return mapsCached;
+    }
 
     private void bindNow() {
         boolean idle = now.pkg == null;
@@ -715,8 +730,8 @@ final class PanelView extends LinearLayout {
             else held = false;
         }
         mediaBar.setFraction(MediaProgress.fraction(pos, now.durationMs));
-        elapsedText.setText(MediaProgress.format(pos));
-        durationText.setText(MediaProgress.format(now.durationMs));
+        Changed.set(elapsedText, MediaProgress.format(pos));
+        Changed.set(durationText, MediaProgress.format(now.durationMs));
     }
 
     /** A drag on the song's bar: the bar and the elapsed time follow the finger, and the player seeks on release. */
@@ -857,7 +872,7 @@ final class PanelView extends LinearLayout {
             title.setVisibility(VISIBLE);
             artist.setVisibility(artist.getText().length() == 0 ? GONE : VISIBLE);
             bigText.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp(24));
-            bigText.setText(now.lyricsLoading ? "Finding lyrics…" : "No lyrics for this track");
+            Changed.set(bigText, now.lyricsLoading ? "Finding lyrics…" : "No lyrics for this track");
             return;
         }
         title.setVisibility(VISIBLE);
@@ -882,14 +897,14 @@ final class PanelView extends LinearLayout {
     private void bindIdle() {
         if (prayer == null) {
             idleNote.setVisibility(VISIBLE);
-            idleNote.setText("Prayer times appear once the unit is online and has a location.");
+            Changed.set(idleNote, "Prayer times appear once the unit is online and has a location.");
             idleTable.setVisibility(GONE);
         } else {
             idleNote.setVisibility(GONE);
             idleTable.setVisibility(VISIBLE);
             idleTable.bind(prayer, System.currentTimeMillis());
         }
-        idleWeather.setText(weather == null ? "" : weather.emoji + " " + Math.round(weather.tempC) + "°C  " + weather.city + "  ·  forecast");
+        Changed.set(idleWeather, weather == null ? "" : weather.emoji + " " + Math.round(weather.tempC) + "°C  " + weather.city + "  ·  forecast");
         idleWeather.setVisibility(weather == null ? GONE : VISIBLE);
     }
 
