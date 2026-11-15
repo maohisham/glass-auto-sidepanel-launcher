@@ -183,7 +183,8 @@ public class PanelActivity extends Activity {
         double[] price = Settings.of(this).fuelPrices();
         String driveLine = last == null ? null : StartSummary.driveLine(last.score, last.km, last.sec);
         String fuelLine = last == null ? null : FuelPrice.costLine(last.fuelL, price[0], price[1]);
-        java.util.List<String> lines = StartSummary.lines(hour, weatherNow, rainLater, prayerLine, driveLine, fuelLine);
+        String serviceLine = Mileage.cardLine(CarStatus.status(this));
+        java.util.List<String> lines = StartSummary.lines(hour, weatherNow, rainLater, prayerLine, serviceLine, driveLine, fuelLine);
 
         boolean dark = Themes.dark(this);
         final android.widget.LinearLayout card = new android.widget.LinearLayout(this);

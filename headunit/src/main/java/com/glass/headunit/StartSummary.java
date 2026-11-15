@@ -46,10 +46,16 @@ final class StartSummary {
 
     /** The card's lines; a line whose data is missing is left out. rainLater is the hour rain is due today, or null. */
     static List<String> lines(int hour, String weatherNow, String rainLater, String prayerLine, String driveLine, String fuelLine) {
+        return lines(hour, weatherNow, rainLater, prayerLine, null, driveLine, fuelLine);
+    }
+
+    /** serviceLine is a service or road tax reminder ("Service due in ≈ 450 km"), shown before the last drive. */
+    static List<String> lines(int hour, String weatherNow, String rainLater, String prayerLine, String serviceLine, String driveLine, String fuelLine) {
         List<String> out = new ArrayList<>();
         out.add(greeting(hour));
         if (weatherNow != null && !weatherNow.isEmpty()) out.add(weatherNow + " · " + (rainLater == null ? "dry today" : "rain from " + rainLater));
         if (prayerLine != null && !prayerLine.isEmpty()) out.add(prayerLine);
+        if (serviceLine != null && !serviceLine.isEmpty()) out.add(serviceLine);
         if (driveLine != null && !driveLine.isEmpty()) out.add(driveLine);
         if (fuelLine != null && !fuelLine.isEmpty()) out.add(fuelLine);
         return out;

@@ -39,4 +39,9 @@ public class StartSummaryTest {
         assertTrue(StartSummary.takeIfOn(true));
         assertFalse(StartSummary.takeIfOn(true));
     }
+
+    @Test public void serviceLineComesBeforeTheDrive() {
+        assertEquals(Arrays.asList("Good morning", "Service due in ≈ 450 km", "Last drive: 82 · 24 km · 35 min"),
+                StartSummary.lines(8, null, null, null, "Service due in ≈ 450 km", "Last drive: 82 · 24 km · 35 min", null));
+    }
 }

@@ -183,4 +183,8 @@ final class Settings {
     /** Why sending stopped (a refusal a retry won't fix), or empty. */
     String haError() { return sp.getString("haError", ""); }
     void setHaError(String e) { sp.edit().putString("haError", e == null ? "" : e).apply(); }
+
+    /** The odometer, service and road tax details entered on the unit (see Mileage). */
+    Mileage.State mileageState() { return Mileage.State.fromJson(sp.getString("mileage", "")); }
+    void setMileageState(Mileage.State m) { sp.edit().putString("mileage", m.toJson()).apply(); }
 }

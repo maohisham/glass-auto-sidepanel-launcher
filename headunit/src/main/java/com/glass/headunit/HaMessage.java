@@ -78,6 +78,28 @@ final class HaMessage {
         return j;
     }
 
+    /** The car's mileage, service and road tax; fields not entered are left out. */
+    static JSONObject status(String car, long time, Mileage.Status m) {
+        JSONObject j = base("car_status", car, time);
+        put(j, "odometer_km", m.odometerKm);
+        JSONObject sv = new JSONObject();
+        if (m.lastServiceDate != null) put(sv, "last_date", m.lastServiceDate);
+        if (m.lastServiceKm >= 0) put(sv, "last_km", m.lastServiceKm);
+        if (m.nextServiceDate != null) put(sv, "next_date", m.nextServiceDate);
+        if (m.nextServiceKm >= 0) put(sv, "next_km", m.nextServiceKm);
+        if (m.kmLeft != null) put(sv, "km_left", m.kmLeft);
+        if (m.daysLeft != null) put(sv, "days_left", m.daysLeft);
+        if (m.dueEstimate != null) put(sv, "due_estimate", m.dueEstimate);
+        if (sv.length() > 0) put(j, "service", sv);
+        if (m.roadTaxDate != null) {
+            JSONObject rt = new JSONObject();
+            put(rt, "renew_date", m.roadTaxDate);
+            if (m.roadTaxDaysLeft != null) put(rt, "days_left", m.roadTaxDaysLeft);
+            put(j, "road_tax", rt);
+        }
+        return j;
+    }
+
     static JSONObject reminder(String car, long time, String level, int kmLeft, String text) {
         JSONObject j = base("reminder", car, time);
         put(j, "what", "service");
