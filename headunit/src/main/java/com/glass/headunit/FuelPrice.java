@@ -107,7 +107,7 @@ final class FuelPrice {
         return "BUDI95 saves you RM " + rm(ron95 - budi95) + " a litre";
     }
 
-    private static double tenSen(double v) { return Math.round(v * 10) / 10.0; }
+    static double tenSen(double v) { return Math.round(v * 10) / 10.0; }
 
     private static String rm(double v) { return String.format(Locale.US, "%.2f", v); }
 }
