@@ -116,6 +116,17 @@ final class DriveScreen extends LinearLayout {
             body.addView(text("Insights", 16, true, PanelStyle.fg(dark)), gap(20));
             for (String s : insights) body.addView(insight(s), gap(8));
         }
+        Settings st = Settings.of(ctx);
+        double[] price = st.fuelPrices();
+        body.addView(text(FuelPrice.pricesLine(price[0], price[1], st.fuelPriceDate()), 13, false, PanelStyle.dim(dark)), gap(20));
+    }
+
+    /** The estimated fuel cost, with and without BUDI95, or how to get one (a car must be chosen for a fuel estimate). */
+    private void fuelCost(float litres) {
+        double[] price = Settings.of(getContext()).fuelPrices();
+        String line = FuelPrice.costLine(litres, price[0], price[1]);
+        body.addView(text(line != null ? line : "Choose your car in Settings → Car to see fuel and cost.", 15, line != null,
+                line != null ? PanelStyle.fg(dark) : PanelStyle.dim(dark)), gap(10));
     }
 
     // ---- the period rings ----
@@ -175,6 +186,7 @@ final class DriveScreen extends LinearLayout {
                 {EcoScore.duration(s.idleSec) + String.format(Locale.US, " (%.0f%%)", s.idlePct), "Idle"},
                 {s.hasCar ? (s.estLPer100 > 0 ? String.format(Locale.US, "%.1f L/100", s.estLPer100) : "--") : "", s.hasCar ? "Fuel use (est.)" : ""},
         }), gap(12));
+        fuelCost(s.hasCar ? s.estFuelL : 0f);
         breakdown(s.zoneScore, s.smoothScore, s.effScore, s.idleScore, s.bonusScore, s.hasCar);
         String tip = EcoScore.tip(s);
         if (!tip.isEmpty()) {
@@ -207,6 +219,7 @@ final class DriveScreen extends LinearLayout {
                 {p == LAST ? String.format(Locale.US, "%.0f km/h", s.avgKmh) : String.valueOf(s.trips), p == LAST ? "Average" : "Drives"},
                 {s.fuelL > 0 ? String.format(Locale.US, "%.1f L", s.fuelL) : String.format(Locale.US, "%.0f%%", s.idlePct()), s.fuelL > 0 ? "Fuel (est.)" : "Idle"},
         }), gap(12));
+        fuelCost(s.fuelL);
 
         if (p != LAST) {
             ScoreChartView chart = new ScoreChartView(getContext(), dark);

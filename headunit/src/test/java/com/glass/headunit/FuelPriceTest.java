@@ -36,4 +36,8 @@ public class FuelPriceTest {
     @Test public void notTwiceWithinSixHours() throws Exception { assertFalse(FuelPrice.due(ms("2026-11-19 08:00"), "2026-11-12", ms("2026-11-19 09:00"))); }
     @Test public void noDateUsesTheWeek() { assertTrue(FuelPrice.due(1000, null, 1000 + 7L * 86_400_000)); assertFalse(FuelPrice.due(1000, "junk", 1000 + 6L * 86_400_000)); assertTrue(FuelPrice.due(0, null, 5)); }
     @Test public void triesAtMostHourly() { assertTrue(FuelPrice.mayTry(0, 5)); assertFalse(FuelPrice.mayTry(1000, 1000 + 59 * 60_000)); assertTrue(FuelPrice.mayTry(1000, 1000 + 60 * 60_000)); }
+
+    @Test public void pricesLineWithDate() { assertEquals("RON95: RM 1.99 BUDI95 · RM 3.87 unsubsidised (prices from 12 Nov)", FuelPrice.pricesLine(1.99, 3.87, "2026-11-12")); }
+    @Test public void pricesLineBeforeAnyFetch() { assertEquals("RON95: RM 1.99 BUDI95 (no prices fetched yet)", FuelPrice.pricesLine(1.99, 0, "")); }
+    @Test public void pricesLineWithoutADate() { assertEquals("RON95: RM 1.99 BUDI95 · RM 3.87 unsubsidised", FuelPrice.pricesLine(1.99, 3.87, "junk")); }
 }

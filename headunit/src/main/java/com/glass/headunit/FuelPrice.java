@@ -77,6 +77,19 @@ final class FuelPrice {
         return line + " · RM " + rm(without) + " without (saved RM " + rm(without - with) + ")";
     }
 
+    /** "RON95: RM 1.99 BUDI95 · RM 3.87 unsubsidised (prices from 12 Nov)", the prices the costs use. */
+    static String pricesLine(double budi95, double ron95, String date) {
+        if (ron95 <= 0) return "RON95: RM " + rm(budi95) + " BUDI95 (no prices fetched yet)";
+        String line = "RON95: RM " + rm(budi95) + " BUDI95 · RM " + rm(ron95) + " unsubsidised";
+        try {
+            java.text.SimpleDateFormat in = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US);
+            in.setLenient(false);
+            return line + " (prices from " + new java.text.SimpleDateFormat("d MMM", Locale.US).format(in.parse(date)) + ")";
+        } catch (Exception e) {
+            return line;
+        }
+    }
+
     private static double tenSen(double v) { return Math.round(v * 10) / 10.0; }
 
     private static String rm(double v) { return String.format(Locale.US, "%.2f", v); }
