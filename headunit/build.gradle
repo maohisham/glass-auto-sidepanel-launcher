@@ -14,8 +14,8 @@ android {
         applicationId 'com.glass.headunit'
         minSdk 31
         targetSdk 33
-        versionCode 17
-        versionName '0.9-headunit'
+        versionCode 18
+        versionName '0.9.1-headunit'
     }
 
     signingConfigs {
