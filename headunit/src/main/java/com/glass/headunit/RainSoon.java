@@ -29,6 +29,12 @@ final class RainSoon {
         return -1;
     }
 
+    /** The weather code now: the live current weather when there is one, else the forecast's (fetched earlier), else 0. */
+    static int currentCode(Weather.Data live, Forecast f) {
+        if (live != null) return live.code;
+        return f == null ? 0 : f.code;
+    }
+
     /** "🌧 Rain likely from 5 pm" when rain is due within two hours and isn't falling yet; otherwise null. */
     static String line(List<Forecast.Hour> hours, int nowHour, int currentCode) {
         if (isRain(currentCode) || isStorm(currentCode)) return null;

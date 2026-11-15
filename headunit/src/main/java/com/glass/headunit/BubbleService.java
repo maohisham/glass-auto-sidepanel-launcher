@@ -48,6 +48,15 @@ public class BubbleService extends Service {
     private int anchorX, anchorY;
 
     /** Starts or stops the bubbles to match the settings and the permission. */
+    /** Draws the bubbles again in the current colours (the Sun theme switched), when one is showing. */
+    static void restyle(Context ctx) {
+        Settings s = Settings.of(ctx);
+        if (!s.bubble() && !s.appsBubble()) return;
+        Spike.log("bubbles: redrawn in the new theme");
+        ctx.stopService(new Intent(ctx, BubbleService.class));
+        apply(ctx);
+    }
+
     static void apply(Context ctx) {
         Intent i = new Intent(ctx, BubbleService.class);
         Settings s = Settings.of(ctx);

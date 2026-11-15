@@ -183,6 +183,13 @@ public class PanelActivity extends Activity {
         } catch (Exception e) { Spike.log("speed volume: could not change the volume (" + e.getClass().getSimpleName() + ")"); }
     }
     private boolean summaryPending;
+    private Runnable summaryTimeout;
+
+    @Override
+    protected void onDestroy() {
+        if (summaryTimeout != null) handler.removeCallbacks(summaryTimeout);
+        super.onDestroy();
+    }
     private final Runnable showSummary = this::showSummary;
 
     /** The weekly RON95 prices for the last drive's cost: at most once a week, kept on the unit for offline use. */
@@ -247,9 +254,10 @@ public class PanelActivity extends Activity {
             t.setPadding(0, i == 0 ? 0 : Glass.dp(this, 6), 0, 0);
             card.addView(t);
         }
-        android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(-1, -2, android.view.Gravity.CENTER);
-        int m = Glass.dp(this, 24);
-        lp.setMargins(m, m, m, m);
+        // over the lyrics area only, so the song's buttons above stay free
+        android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(-1, -2, android.view.Gravity.TOP | android.view.Gravity.CENTER_HORIZONTAL);
+        int m = Glass.dp(this, 16);
+        lp.setMargins(m, panel.lyricsTop() + Glass.dp(this, 8), m, m);
         final Runnable close = () -> {
             if (card.getParent() == null) return;
             card.animate().alpha(0f).setDuration(600).withEndAction(() -> root.removeView(card)).start();
@@ -257,12 +265,14 @@ public class PanelActivity extends Activity {
         card.setOnClickListener(v -> { if (card.getParent() != null) { Spike.log("summary: closed (tap)"); root.removeView(card); } });
         root.addView(card, lp);
         Spike.log("summary: shown (" + lines.size() + " lines)");
-        handler.postDelayed(() -> { if (card.getParent() != null) { Spike.log("summary: closed (timeout)"); close.run(); } }, 10_000);
+        if (summaryTimeout != null) handler.removeCallbacks(summaryTimeout);
+        summaryTimeout = () -> { if (card.getParent() != null) { Spike.log("summary: closed (timeout)"); close.run(); } };
+        handler.postDelayed(summaryTimeout, 10_000);
     }
 
     /** The rain heads-up in the weather line: from the forecast, from the current hour. */
     private void updateRain() {
-        String line = forecast == null ? null : RainSoon.line(forecast.hours, java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY), forecast.code);
+        String line = forecast == null ? null : RainSoon.line(forecast.hours, java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY), RainSoon.currentCode(lastWeather, forecast));
         String shown = line == null ? "none" : line;
         if (!shown.equals(rainShown)) { rainShown = shown; Spike.log("rain: " + shown); }
         panel.setRainLine(line);
@@ -274,6 +284,13 @@ public class PanelActivity extends Activity {
         if (darkApplied != null && dark != darkApplied) {
             Spike.log("theme: sun switches to " + (dark ? "dark" : "light"));
             applyStyle(getResources().getConfiguration());
+            // full-panel screens and the bubbles were drawn in the old colours: draw them again
+            if (picker != null) { hidePicker(); showPicker(); }
+            if (appsGrid != null) { hideApps(); showApps(); }
+            if (weatherScreen != null) { hideWeather(); showWeather(); }
+            if (driveScreen != null) { hideDrive(); showDrive(); }
+            if (prayerScreen != null) { hidePrayer(); showPrayer(); }
+            BubbleService.restyle(this);
         }
     }
 

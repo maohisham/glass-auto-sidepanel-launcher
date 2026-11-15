@@ -529,6 +529,16 @@ final class PanelView extends LinearLayout {
 
     private String rainLine;
 
+    /**
+     * Where the lyrics area (or the idle prayer table) starts, below the song and its buttons, in the panel's own
+     * coordinates; 0 before layout or for a radio station, whose buttons sit inside that area.
+     */
+    int lyricsTop() {
+        if (radioArea != null && radioArea.getVisibility() == VISIBLE) return 0;
+        for (View v : new View[]{scroll, bigText, idleBox == null ? null : idleScroll()}) if (v != null && v.getVisibility() == VISIBLE && v.getHeight() > 0) return v.getTop();
+        return 0;
+    }
+
     /** A rain heads-up shown in place of the place name, or null for the usual line. */
     void setRainLine(String line) {
         if (java.util.Objects.equals(line, rainLine)) return;

@@ -22,4 +22,10 @@ public class RainSoonTest {
     @Test public void unknownHourIsQuiet() { assertEquals(-1, RainSoon.firstWet(list(h("3 pm", 15, 63, 90)), 9, 2)); }
     @Test public void restOfTheDay() { assertEquals(3, RainSoon.firstWet(list(h("3 pm", 15, 3, 0), h("4 pm", 16, 3, 0), h("5 pm", 17, 3, 0), h("6 pm", 18, 63, 90)), 15, 24)); }
     @Test public void codes() { assertTrue(RainSoon.isRain(51)); assertTrue(RainSoon.isRain(82)); assertFalse(RainSoon.isRain(3)); assertTrue(RainSoon.isStorm(99)); assertFalse(RainSoon.isStorm(63)); }
+
+    @Test public void liveWeatherWins() {
+        Weather.Data w = new Weather.Data(); w.code = 63;
+        Forecast f = new Forecast(); f.code = 3;
+        assertEquals(63, RainSoon.currentCode(w, f)); assertEquals(3, RainSoon.currentCode(null, f)); assertEquals(0, RainSoon.currentCode(null, null));
+    }
 }
