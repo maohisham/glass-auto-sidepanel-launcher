@@ -84,6 +84,7 @@ public class SettingsActivity extends Activity {
         super.onPause();
         SplitHelperService h = SplitHelperService.get();
         if (full && isFinishing() && !wasSplit) Spike.log("settings: closed full screen; the screen was not split before, so leaving it as it is");
+        if (full && isFinishing() && h == null) Spike.log("settings: closed full screen but the window helper is off; not laying out again");
         if (SettingsOpen.restoreOnFinish(full, isFinishing(), wasSplit) && h != null) {
             Spike.log("settings: closed full screen, laying out the panel and map again");
             h.restoreLayout();

@@ -240,29 +240,43 @@ public class SplitHelperService extends AccessibilityService {
 
     boolean isSplit() { return dividerBounds() != null; }
 
+    private final OnceGate fullScreenGate = new OnceGate(3000);
+
     /** Opens an app over the whole screen: leaves the split first when there is one (the app would otherwise take a half). */
     void openFullScreen(String pkg) {
-        if (isSplit()) {
-            Spike.log("helper: leaving the split to open " + pkg + " full screen");
-            toggleSplit();
-            handler.postDelayed(() -> launch(pkg, false), 1200);
-        } else launch(pkg, false);
+        if (!fullScreenGate.tryStart(SystemClock.elapsedRealtime())) { Spike.log("helper: already opening full screen, ignoring the repeat"); return; }
+        if (!isSplit()) { launch(pkg, false); fullScreenGate.done(); return; }
+        Spike.log("helper: leaving the split to open " + pkg + " full screen");
+        if (!toggleSplit()) {
+            Spike.log("helper: the unit refused to leave the split; opening " + pkg + " as it is");
+            launch(pkg, false);
+            fullScreenGate.done();
+            return;
+        }
+        handler.postDelayed(() -> { launch(pkg, false); fullScreenGate.done(); }, 1200);
     }
 
     /** Opens Settings over the whole screen: leaves the split first when there is one, as for the Android Auto app. */
     void openSettingsFullScreen() {
-        final boolean wasSplit = isSplit();
-        Runnable open = () -> {
-            Intent i = new Intent(this, SettingsActivity.class).putExtra(SettingsActivity.EXTRA_FULL, true)
-                    .putExtra(SettingsActivity.EXTRA_WAS_SPLIT, wasSplit).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            try { startActivity(i); Spike.log("helper: opened Settings full screen"); }
-            catch (Exception e) { Spike.log("helper: could not open Settings (" + e.getClass().getSimpleName() + ")"); }
-        };
+        if (!fullScreenGate.tryStart(SystemClock.elapsedRealtime())) { Spike.log("helper: already opening full screen, ignoring the repeat"); return; }
+        boolean wasSplit = isSplit();
+        if (wasSplit && !toggleSplit()) {
+            Spike.log("helper: the unit refused to leave the split; opening Settings as it is");
+            openSettings(false, false);
+            return;
+        }
         if (wasSplit) {
             Spike.log("helper: leaving the split to open Settings full screen");
-            toggleSplit();
-            handler.postDelayed(open, 1200);
-        } else open.run();
+            handler.postDelayed(() -> openSettings(true, true), 1200);
+        } else openSettings(true, false);
+    }
+
+    private void openSettings(boolean full, boolean wasSplit) {
+        Intent i = new Intent(this, SettingsActivity.class).putExtra(SettingsActivity.EXTRA_FULL, full)
+                .putExtra(SettingsActivity.EXTRA_WAS_SPLIT, wasSplit).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try { startActivity(i); Spike.log("helper: opened Settings" + (full ? " full screen" : "")); }
+        catch (Exception e) { Spike.log("helper: could not open Settings (" + e.getClass().getSimpleName() + ")"); }
+        fullScreenGate.done();
     }
 
     /** Lays the panel and map out again after full-screen Settings closed, even within a minute of the last layout. */
