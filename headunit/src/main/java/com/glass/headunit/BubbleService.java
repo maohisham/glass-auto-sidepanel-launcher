@@ -278,7 +278,7 @@ public class BubbleService extends Service {
 
     private boolean isDark() {
         boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-        return PanelStyle.isDark(Settings.of(this).theme(), night);
+        return Themes.dark(this, night);
     }
 
     private void openPicker() {

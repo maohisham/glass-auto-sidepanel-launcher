@@ -44,7 +44,7 @@ public class SettingsActivity extends Activity {
         wasSplit = getIntent().getBooleanExtra(EXTRA_WAS_SPLIT, false);
         Configuration c = getResources().getConfiguration();
         boolean night = (c.uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-        boolean dark = PanelStyle.isDark(s.theme(), night);
+        boolean dark = Themes.dark(this, night);
         wide = SettingsLayout.wide(c.screenWidthDp);
         w = new SettingsWidgets(this, dark);
         pages = new SettingsPages(this, s, w, dark);

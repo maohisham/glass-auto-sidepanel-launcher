@@ -32,6 +32,9 @@ public class PanelActivity extends Activity {
     private Forecast forecast;
     private SpeedFollower speed;
     private int tickCount;
+    private Prayer.Data lastPrayer;
+    private Weather.Data lastWeather;
+    private Boolean darkApplied;   // what applyStyle last used, so the Sun theme switches when the time comes
     private boolean freshStart;   // true until the first start of this new panel has been handled
     private long lastSpeedAt;   // when the last GPS speed arrived (0 = none yet)
     private final SpeedAlertPolicy alertPolicy = new SpeedAlertPolicy();
@@ -53,6 +56,7 @@ public class PanelActivity extends Activity {
                 if (driveScreen != null) driveScreen.refresh();
             }
             if (!demo && tickCount % 30 == 0) DriveLog.save(PanelActivity.this, DriveTrip.trip());   // the running trip, into the drive log
+            if (tickCount % 60 == 0) everyMinute();
             handler.postDelayed(this, 1000);
         }
     };
@@ -99,12 +103,36 @@ public class PanelActivity extends Activity {
     private void applyStyle(Configuration c) {
         Settings s = Settings.of(this);
         boolean night = (c.uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-        boolean dark = PanelStyle.isDark(s.theme(), night);
+        boolean dark = Themes.dark(this, night);
+        darkApplied = dark;
         panel.setStyle(PanelMode.forWidthDp(c.screenWidthDp), s.textSize(), s.lyricsSize(), dark);
         panel.setClock(s.showClock(), s.clockMode());
         panel.setSwipeEnabled(s.swipeTrack());
         panel.setOnApps(s.homeLauncher() ? this::showApps : null);
         getWindow().getDecorView().setBackgroundColor(PanelStyle.bg(dark));
+    }
+
+    /** New prayer and weather data: kept for the start summary, and Syuruk and Maghrib saved for the Sun theme. */
+    private void onData(Prayer.Data p, Weather.Data w) {
+        lastPrayer = p;
+        lastWeather = w;
+        if (p == null || p.syuruk == null || p.syuruk.isEmpty() || p.times.get("Maghrib") == null) return;
+        int sy = Prayer.hhmm(p.syuruk), mg = Prayer.hhmm(p.times.get("Maghrib"));
+        if (sy <= 0 || mg <= sy) return;
+        int[] had = Settings.of(this).sunTimes();
+        if (had[0] != sy || had[1] != mg) {
+            Settings.of(this).setSunTimes(sy, mg);
+            Spike.log("theme: sun times saved (Syuruk " + p.syuruk + ", Maghrib " + p.times.get("Maghrib") + ")");
+        }
+    }
+
+    /** Once a minute: the Sun theme switches at Maghrib and Syuruk. */
+    private void everyMinute() {
+        boolean dark = Themes.dark(this);
+        if (darkApplied != null && dark != darkApplied) {
+            Spike.log("theme: sun switches to " + (dark ? "dark" : "light"));
+            applyStyle(getResources().getConfiguration());
+        }
     }
 
     /** Writes where the panel's own window is on the screen: the one place the layout can be read without the window helper. */
@@ -136,7 +164,7 @@ public class PanelActivity extends Activity {
     private void showPinChoice(java.util.List<Pin> options, android.graphics.Bitmap cover) {
         Settings s = Settings.of(this);
         boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-        boolean dark = PanelStyle.isDark(s.theme(), night);
+        boolean dark = Themes.dark(this, night);
         final android.widget.FrameLayout shade = new android.widget.FrameLayout(this);
         shade.setBackgroundColor(0x99000000);
         shade.setOnClickListener(v -> root.removeView(shade));
@@ -182,7 +210,7 @@ public class PanelActivity extends Activity {
         if (picker != null) return;
         Settings s = Settings.of(this);
         boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-        picker = new PlayerPicker(this, follower, PanelStyle.isDark(s.theme(), night), this::hidePicker);
+        picker = new PlayerPicker(this, follower, Themes.dark(this, night), this::hidePicker);
         root.addView(picker, new android.widget.FrameLayout.LayoutParams(-1, -1));
     }
 
@@ -190,7 +218,7 @@ public class PanelActivity extends Activity {
         if (appsGrid != null) return;
         Settings s = Settings.of(this);
         boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-        appsGrid = new AppsGrid(this, PanelStyle.isDark(s.theme(), night), this::hideApps);
+        appsGrid = new AppsGrid(this, Themes.dark(this, night), this::hideApps);
         root.addView(appsGrid, new android.widget.FrameLayout.LayoutParams(-1, -1));
     }
 
@@ -293,7 +321,7 @@ public class PanelActivity extends Activity {
             return;
         }
         follower = new MediaFollower(this, n -> { lastNow = n; panel.showNowPlaying(n); });
-        controller = new PanelController(this, (p, w, off, loc) -> panel.showData(p, w, off, loc));
+        controller = new PanelController(this, (p, w, off, loc) -> { onData(p, w); panel.showData(p, w, off, loc); });
         controller.setForecastListener(f -> { forecast = f; if (weatherScreen != null) weatherScreen.setForecast(f); });
         panel.setControls(new PanelView.Controls() {
             @Override public void play() { follower.play(); }

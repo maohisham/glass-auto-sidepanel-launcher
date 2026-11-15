@@ -54,7 +54,7 @@ public class WizardActivity extends Activity {
         super.onCreate(b);
         s = Settings.of(this);
         boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-        dark = PanelStyle.isDark(s.theme(), night);
+        dark = Themes.dark(this, night);
         setTitle("Setup");
         page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);

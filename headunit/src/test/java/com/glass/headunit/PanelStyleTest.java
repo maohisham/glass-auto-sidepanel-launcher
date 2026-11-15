@@ -81,4 +81,22 @@ public class PanelStyleTest {
         assertEquals(26f * 1.5f, PanelStyle.lyricSp(26f, 3, 1, PanelMode.REGULAR), 0.001f);
         assertEquals(26f * 1.5f * 0.85f, PanelStyle.lyricSp(26f, 3, 1, PanelMode.COMPACT), 0.001f);
     }
+
+    @Test public void sunIsDarkAfterMaghribAndBeforeSyuruk() {
+        assertTrue(PanelStyle.isDark(3, false, 19 * 60 + 30, 7 * 60 + 5, 19 * 60 + 21));
+        assertTrue(PanelStyle.isDark(3, false, 2 * 60, 7 * 60 + 5, 19 * 60 + 21));       // after midnight
+        assertFalse(PanelStyle.isDark(3, true, 12 * 60, 7 * 60 + 5, 19 * 60 + 21));      // midday, even if the unit says night
+        assertFalse(PanelStyle.isDark(3, true, 7 * 60 + 5, 7 * 60 + 5, 19 * 60 + 21));   // light from Syuruk itself
+    }
+
+    @Test public void sunWithoutTimesFollowsTheUnit() {
+        assertTrue(PanelStyle.isDark(3, true, 12 * 60, -1, -1));
+        assertFalse(PanelStyle.isDark(3, false, 22 * 60, -1, 19 * 60));
+    }
+
+    @Test public void otherThemesUnchanged() {
+        assertTrue(PanelStyle.isDark(2, false, 12 * 60, 420, 1160));
+        assertFalse(PanelStyle.isDark(1, true, 23 * 60, 420, 1160));
+        assertTrue(PanelStyle.isDark(0, true, 12 * 60, 420, 1160));
+    }
 }

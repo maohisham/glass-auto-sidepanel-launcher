@@ -11,7 +11,19 @@ final class PanelStyle {
     static float scale(int textSize) { return textSize == 0 ? 0.85f : textSize == 2 ? 1.25f : 1.0f; }
 
     /** theme: 0 follow the unit, 1 light, 2 dark. */
-    static boolean isDark(int theme, boolean systemNight) { return theme == 0 ? systemNight : theme == 2; }
+    static boolean isDark(int theme, boolean systemNight) { return isDark(theme, systemNight, 0, -1, -1); }
+
+    /**
+     * theme 3 (Sun) is dark from Maghrib until Syuruk, by today's prayer times (minutes since midnight). Without them it
+     * follows the unit, like theme 0.
+     */
+    static boolean isDark(int theme, boolean systemNight, int nowMin, int syurukMin, int maghribMin) {
+        if (theme == 3) {
+            if (syurukMin < 0 || maghribMin < 0) return systemNight;
+            return nowMin >= maghribMin || nowMin < syurukMin;
+        }
+        return theme == 0 ? systemNight : theme == 2;
+    }
 
     /** A base size in sp, after the user's text size and the narrow layout's reduction. */
     static float sp(float base, int textSize, PanelMode mode) {

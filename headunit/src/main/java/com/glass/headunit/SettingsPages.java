@@ -114,7 +114,7 @@ final class SettingsPages {
     // ---- Display ----
 
     private void display(LinearLayout box) {
-        box.addView(w.segments("Theme", new String[]{"Unit", "Light", "Dark"}, s.theme(), i -> {
+        box.addView(w.segments("Theme", new String[]{"Unit", "Light", "Dark", "Sun"}, s.theme(), i -> {
             if (i == s.theme()) return;
             s.setTheme(i);
             Spike.log("settings: theme " + i + ", restyling the page");

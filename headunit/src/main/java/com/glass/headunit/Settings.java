@@ -20,9 +20,13 @@ final class Settings {
     int textSize() { return sp.getInt("textSize", 1); }
     void setTextSize(int v) { sp.edit().putInt("textSize", Math.max(0, Math.min(2, v))).apply(); }
 
-    /** 0 follow the unit, 1 light, 2 dark. */
+    /** 0 follow the unit, 1 light, 2 dark, 3 sun (dark from Maghrib to Syuruk). */
     int theme() { return sp.getInt("theme", 0); }
-    void setTheme(int v) { sp.edit().putInt("theme", Math.max(0, Math.min(2, v))).apply(); }
+    void setTheme(int v) { sp.edit().putInt("theme", Math.max(0, Math.min(3, v))).apply(); }
+
+    /** The last known Syuruk and Maghrib, in minutes since midnight, for the Sun theme; -1 while unknown. */
+    int[] sunTimes() { return new int[]{sp.getInt("sunSyuruk", -1), sp.getInt("sunMaghrib", -1)}; }
+    void setSunTimes(int syurukMin, int maghribMin) { sp.edit().putInt("sunSyuruk", syurukMin).putInt("sunMaghrib", maghribMin).apply(); }
 
     /** True puts the panel on the left and the map on the right. */
     boolean swapSides() { return sp.getBoolean("swapSides", false); }
