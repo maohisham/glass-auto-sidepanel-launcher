@@ -154,4 +154,8 @@ final class Settings {
     /** The speed volume's {userLevel, lastSet, extra} while it has added steps, so a restarted app can put the level back. */
     int[] speedVolumeState() { return new int[]{sp.getInt("svUser", -1), sp.getInt("svSet", -1), sp.getInt("svExtra", 0)}; }
     void setSpeedVolumeState(int[] s) { sp.edit().putInt("svUser", s[0]).putInt("svSet", s[1]).putInt("svExtra", s[2]).apply(); }
+
+    /** Send the car's events to the Home Assistant webhook. Off by default. */
+    boolean haOn() { return sp.getBoolean("haOn", false); }
+    void setHaOn(boolean v) { sp.edit().putBoolean("haOn", v).apply(); }
 }

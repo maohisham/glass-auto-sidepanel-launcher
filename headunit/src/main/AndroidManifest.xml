@@ -10,6 +10,9 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- the drive recorder keeps following the GPS behind other apps, with a notification -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 
     <!-- Lets the panel see the real players and their media browser services. -->
     <queries>
@@ -119,6 +122,11 @@
             android:label="Glass Panel split-screen test" />
 
         <!-- The window helper: presses split-screen and drags the divider. The user turns it on by hand in Accessibility settings. -->
+        <service
+            android:name=".DriveRecorder"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
         <service
             android:name=".SplitHelperService"
             android:exported="true"

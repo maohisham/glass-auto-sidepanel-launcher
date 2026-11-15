@@ -29,11 +29,12 @@ final class AutoPlay {
         ctx.getApplicationContext().registerReceiver(new android.content.BroadcastReceiver() {
             @Override public void onReceive(Context c, android.content.Intent i) {
                 long now = SystemClock.elapsedRealtime();
-                if (android.content.Intent.ACTION_SCREEN_OFF.equals(i.getAction())) { screenOffAt = now; return; }
+                if (android.content.Intent.ACTION_SCREEN_OFF.equals(i.getAction())) { screenOffAt = now; DriveRecorder.onSleep(c); return; }
                 boolean wake = AutoPlayPolicy.isWake(screenOffAt, now);
                 Spike.log("screen on" + (screenOffAt > 0 ? " after " + (now - screenOffAt) / 1000 + " s off" : "") + (wake ? ": a wake from sleep" : ""));
                 screenOffAt = 0;
-                if (wake) { rearm(c, "the unit woke from sleep"); StartSummary.arm("wake"); PanelActivity.newDrive(c); }
+                DriveRecorder.onWake(c);   // a sleep of 10 minutes or more ends the drive
+                if (wake) { rearm(c, "the unit woke from sleep"); StartSummary.arm("wake"); DriveRecorder.newDrive(c); }
             }
         }, f);
     }

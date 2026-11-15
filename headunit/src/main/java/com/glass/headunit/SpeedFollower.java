@@ -12,7 +12,7 @@ import android.location.LocationManager;
  */
 final class SpeedFollower {
 
-    interface Listener { void onSpeed(float kmh); }
+    interface Listener { void onFix(float kmh, Location fix); }
 
     private final Context ctx;
     private final Listener listener;
@@ -20,7 +20,7 @@ final class SpeedFollower {
     private boolean started;
 
     private final LocationListener fix = new LocationListener() {
-        @Override public void onLocationChanged(Location l) { listener.onSpeed(l.hasSpeed() ? l.getSpeed() * 3.6f : 0f); }
+        @Override public void onLocationChanged(Location l) { listener.onFix(l.hasSpeed() ? l.getSpeed() * 3.6f : 0f, l); }
     };
 
     SpeedFollower(Context ctx, Listener listener) {
