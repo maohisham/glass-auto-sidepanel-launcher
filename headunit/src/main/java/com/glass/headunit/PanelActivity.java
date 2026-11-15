@@ -132,21 +132,48 @@ public class PanelActivity extends Activity {
 
     /** Kept across panel restarts within one drive; a new drive (car start or wake) starts it afresh. */
     private static final SpeedVolume SPEED_VOLUME = new SpeedVolume();
-    private static boolean speedVolumeHandsOffLogged;
+    private static boolean speedVolumeHandsOffLogged, speedVolumeLoaded;
 
-    static void newDrive() {
+    /** A new drive (car start or wake): anything still added from the last one is put back first, then it starts afresh. */
+    static void newDrive(android.content.Context c) {
+        releaseVolume(c, "a new drive");
         SPEED_VOLUME.reset();
         speedVolumeHandsOffLogged = false;
+    }
+
+    /** After the app restarted mid-drive, picks up what the speed volume had added (saved in Settings). */
+    private static void loadSpeedVolume(android.content.Context c) {
+        if (speedVolumeLoaded) return;
+        speedVolumeLoaded = true;
+        int[] st = Settings.of(c).speedVolumeState();
+        SPEED_VOLUME.restore(st[0], st[1], st[2]);
+        if (st[2] > 0) Spike.log("speed volume: picked up +" + st[2] + " from before the app restarted (your level " + st[0] + ")");
+    }
+
+    /** Puts the driver's level back when the panel stops following the speed, so the music is never left raised. */
+    static void releaseVolume(android.content.Context c, String why) {
+        try {
+            loadSpeedVolume(c);
+            android.media.AudioManager am = c.getSystemService(android.media.AudioManager.class);
+            int back = SPEED_VOLUME.release(am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC));
+            Settings.of(c).setSpeedVolumeState(SPEED_VOLUME.state());
+            if (back >= 0) {
+                am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, back, 0);
+                Spike.log("speed volume: back to your level " + back + " (" + why + ")");
+            }
+        } catch (Exception e) { Spike.log("speed volume: could not put the volume back (" + e.getClass().getSimpleName() + ")"); }
     }
 
     /** Raises the music with speed, and leaves it alone for the drive once the driver changes it. */
     private void adjustVolume(float kmh) {
         try {
+            loadSpeedVolume(this);
             android.media.AudioManager am = getSystemService(android.media.AudioManager.class);
             int cur = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC), max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
             int r = SPEED_VOLUME.onSpeed(kmh, android.os.SystemClock.elapsedRealtime(), cur, max, speedAlert != null && speedAlert.playing());
             if (r >= 0) {
                 am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, r, 0);
+                Settings.of(this).setSpeedVolumeState(SPEED_VOLUME.state());
                 Spike.log("speed volume: +" + SPEED_VOLUME.extra() + " -> " + r + " (" + Math.round(kmh) + " km/h)");
             }
             if (SPEED_VOLUME.handsOff() && !speedVolumeHandsOffLogged) {
@@ -519,6 +546,7 @@ public class PanelActivity extends Activity {
         hideDrive();
         hideWeather();
         if (!demo) DriveLog.save(this, DriveTrip.trip());
+        if (!demo) releaseVolume(this, "the panel stopped following the speed");
         if (speed != null) { speed.stop(); speed = null; }
         if (follower != null) { follower.stop(); follower = null; }
         if (controller != null) { controller.stop(); controller = null; }

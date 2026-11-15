@@ -147,4 +147,8 @@ final class Settings {
         sp.edit().putLong("fuelBudi95", Double.doubleToLongBits(budi95)).putLong("fuelRon95", Double.doubleToLongBits(ron95))
                 .putLong("fuelFetchedAt", fetchedAt).apply();
     }
+
+    /** The speed volume's {userLevel, lastSet, extra} while it has added steps, so a restarted app can put the level back. */
+    int[] speedVolumeState() { return new int[]{sp.getInt("svUser", -1), sp.getInt("svSet", -1), sp.getInt("svExtra", 0)}; }
+    void setSpeedVolumeState(int[] s) { sp.edit().putInt("svUser", s[0]).putInt("svSet", s[1]).putInt("svExtra", s[2]).apply(); }
 }
