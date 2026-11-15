@@ -7,6 +7,10 @@ A side panel for Android car head units. It sits beside Google Maps or Waze in s
 - the weather;
 - your driving score and speed.
 
+<p align="center">
+  <img src="docs/screenshots/panel-map.png" alt="Glass Panel beside Google Maps, showing a song with its lyrics" width="900">
+</p>
+
 It's built for Malaysian roads and runs on Android 12 or newer. In daily use on a **Carlinkit Ultra 2** and an **Eonon UX7ST**.
 
 ## Features
@@ -21,15 +25,27 @@ It's built for Malaysian roads and runs on Android 12 or newer. In daily use on 
   - **Recent** and **Search** sit underneath the Quick picks.
 - **Auto-play:** starts the last player when the car starts.
 
+<p align="center">
+  <img src="docs/screenshots/picker.png" alt="The player picker with Quick picks and Recent" width="640">
+</p>
+
 ### Prayer times
 
 - **Times for where you are:** they follow the car, by JAKIM zone, with a countdown to the next prayer.
 - **When nothing is playing:** the panel shows the day's prayer table, and its colours follow the time of day.
 
+<p align="center">
+  <img src="docs/screenshots/prayer.png" alt="The prayer table shown when nothing is playing" width="640">
+</p>
+
 ### Weather
 
 - **Weather where you are:** the current weather, an hourly and weekly forecast, and air quality.
 - **Rain heads-up:** "🌧 Rain likely from 5 PM" appears in the weather line before it starts.
+
+<p align="center">
+  <img src="docs/screenshots/weather.png" alt="The weather screen with the hourly and weekly forecast" width="640">
+</p>
 
 ### Driving
 
@@ -39,12 +55,17 @@ It's built for Malaysian roads and runs on Android 12 or newer. In daily use on 
 - **Start-of-drive summary:** a short card when the car starts. It shows the weather, the next prayer, and the last drive's time and fuel cost, with and without BUDI95.
 - **Android Auto button:** opens AutoKit or Xlink full screen.
 
+
 ### Made for the car
 
 - **Big controls:** big buttons and text, in a light, dark or **Sun** theme. Sun is dark from Maghrib to Syuruk.
 - **Settings you can use while driving:** groups on a rail, with large switches and − / + buttons.
 - **Floating bubbles:** optional, for media and apps, on top of any app.
 - **Split-screen by itself:** with the window helper on, the screen splits into the map and the panel at start-up.
+
+<p align="center">
+  <img src="docs/screenshots/settings.png" alt="Settings, with the group rail on the left" width="640">
+</p>
 
 ## Install
 
@@ -137,3 +158,4 @@ Back both files up outside this folder. Without them, the build falls back to th
 | `headunit/` | The app (package `com.glass.headunit`) |
 | `docs/superpowers/` | Design notes and implementation plans for each release |
 | `docs/unit-notes.md` | What was found while testing on each unit |
+| `docs/screenshots/` | The pictures in this README |
