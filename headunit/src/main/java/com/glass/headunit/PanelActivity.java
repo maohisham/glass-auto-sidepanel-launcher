@@ -129,6 +129,32 @@ public class PanelActivity extends Activity {
 
     /** Once a minute: the Sun theme switches at Maghrib and Syuruk. */
     private String rainShown = "";
+
+    /** Kept across panel restarts within one drive; a new drive (car start or wake) starts it afresh. */
+    private static final SpeedVolume SPEED_VOLUME = new SpeedVolume();
+    private static boolean speedVolumeHandsOffLogged;
+
+    static void newDrive() {
+        SPEED_VOLUME.reset();
+        speedVolumeHandsOffLogged = false;
+    }
+
+    /** Raises the music with speed, and leaves it alone for the drive once the driver changes it. */
+    private void adjustVolume(float kmh) {
+        try {
+            android.media.AudioManager am = getSystemService(android.media.AudioManager.class);
+            int cur = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC), max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
+            int r = SPEED_VOLUME.onSpeed(kmh, android.os.SystemClock.elapsedRealtime(), cur, max, speedAlert != null && speedAlert.playing());
+            if (r >= 0) {
+                am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, r, 0);
+                Spike.log("speed volume: +" + SPEED_VOLUME.extra() + " -> " + r + " (" + Math.round(kmh) + " km/h)");
+            }
+            if (SPEED_VOLUME.handsOff() && !speedVolumeHandsOffLogged) {
+                speedVolumeHandsOffLogged = true;
+                Spike.log("speed volume: you changed the volume, leaving it alone until the next drive");
+            }
+        } catch (Exception e) { Spike.log("speed volume: could not change the volume (" + e.getClass().getSimpleName() + ")"); }
+    }
     private boolean summaryPending;
     private final Runnable showSummary = this::showSummary;
 
@@ -412,7 +438,7 @@ public class PanelActivity extends Activity {
         AutoPlay.schedule(this, 5000, "panel started");   // once per process: a reboot also triggers it from the media listener
         // the GPS speed feeds the driving score and the speed alert: either one is enough to listen
         final boolean scoring = Settings.of(this).driveScore();
-        if (scoring || Settings.of(this).speedAlert()) {
+        if (scoring || Settings.of(this).speedAlert() || Settings.of(this).speedVolume()) {
             speed = new SpeedFollower(this, kmh -> {
                 long now = System.currentTimeMillis();
                 if (scoring) {
@@ -426,6 +452,7 @@ public class PanelActivity extends Activity {
                     if (speedAlert == null) speedAlert = new SpeedAlert(PanelActivity.this);
                     speedAlert.play();
                 }
+                if (st.speedVolume()) adjustVolume(kmh);
             });
             speed.start();
         }

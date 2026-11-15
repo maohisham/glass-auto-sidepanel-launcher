@@ -58,6 +58,7 @@ final class SettingsPages {
         box.addView(w.stepper("Alert above", null, s.speedLimit(), " km/h", 5, 40, 180, s::setSpeedLimit));
         box.addView(w.stepper("Beep volume", "Of the media volume. Music keeps playing.", s.beepVolume(), "%", 5, 10, 100, s::setBeepVolume));
         box.addView(w.bigButton("Test the alert sound", () -> new SpeedAlert(a).play()));
+        box.addView(w.switchRow("Raise the volume with speed", "One step at 80 km/h, two at 100. Touch the volume and it stops for the drive.", s.speedVolume(), s::setSpeedVolume));
         box.addView(w.switchRow("Driving score and speed", "Uses the GPS while the panel is open", s.driveScore(), s::setDriveScore));
     }
 

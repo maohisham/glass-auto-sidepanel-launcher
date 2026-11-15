@@ -132,4 +132,8 @@ final class Settings {
     /** The short card shown once each time the car starts. On by default. */
     boolean startSummary() { return sp.getBoolean("startSummary", true); }
     void setStartSummary(boolean v) { sp.edit().putBoolean("startSummary", v).apply(); }
+
+    /** Raise the music a step at 80 km/h and another at 100, for road noise. Off by default. */
+    boolean speedVolume() { return sp.getBoolean("speedVolume", false); }
+    void setSpeedVolume(boolean v) { sp.edit().putBoolean("speedVolume", v).apply(); }
 }

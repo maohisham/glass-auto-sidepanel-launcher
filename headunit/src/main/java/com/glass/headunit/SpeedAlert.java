@@ -20,7 +20,13 @@ final class SpeedAlert {
 
     SpeedAlert(Context ctx) { this.ctx = ctx.getApplicationContext(); }
 
+    private volatile boolean playing;
+
+    /** True from raising the volume for the beep until it is put back: the speed volume leaves the volume alone meanwhile. */
+    boolean playing() { return playing; }
+
     void play() {
+        playing = true;
         final AudioManager am = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
         final AudioFocusRequest focus = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
                 .setAudioAttributes(new AudioAttributes.Builder()
@@ -47,13 +53,16 @@ final class SpeedAlert {
             handler.postDelayed(() -> {
                 try {
                     putBack(am, raised, before, raisedTo);   // before the music comes back up, so it is never loud for a moment
+                    playing = false;
                     try { am.abandonAudioFocusRequest(focus); } catch (Exception ignored) { }
                     tone.release();
                 } catch (Exception e) { Spike.log("speed alert: could not tidy up after the beep (" + e.getClass().getSimpleName() + ")"); }
+                finally { playing = false; }
             }, 1500);
         } catch (RuntimeException e) {
             Spike.log("speed alert: the unit could not make the sound (" + e.getClass().getSimpleName() + ")");
             putBack(am, raised, before, raisedTo);
+            playing = false;
             try { am.abandonAudioFocusRequest(focus); } catch (Exception ignored) { }
         }
     }

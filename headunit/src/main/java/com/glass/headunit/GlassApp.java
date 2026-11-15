@@ -36,7 +36,7 @@ public class GlassApp extends Application {
             @Override public void onActivityDestroyed(android.app.Activity a) { }
         });
         AutoPlay.watchScreen(this);
-        if (android.os.SystemClock.elapsedRealtime() < 3 * 60_000L) StartSummary.arm("boot");
+        if (android.os.SystemClock.elapsedRealtime() < 3 * 60_000L) { StartSummary.arm("boot"); PanelActivity.newDrive(); }
         Spike.log("process started");
         logLastExit();
     }
