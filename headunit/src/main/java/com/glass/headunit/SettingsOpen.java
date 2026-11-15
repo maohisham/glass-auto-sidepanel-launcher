@@ -1,0 +1,12 @@
+package com.glass.headunit;
+
+/** When Settings opens over the whole screen, and when closing it should lay the panel and map out again. */
+final class SettingsOpen {
+
+    private SettingsOpen() { }
+
+    /** Full screen needs the window helper to leave the split; without it Settings opens in the panel as before. */
+    static boolean fullScreen(boolean settingOn, boolean helperOn) { return settingOn && helperOn; }
+
+    static boolean restoreOnFinish(boolean openedFull, boolean finishing) { return openedFull && finishing; }
+}

@@ -116,4 +116,12 @@ final class Settings {
     /** Open the map app beside the panel when the panel starts (on by default); off launches only the panel. */
     boolean autoOpenMaps() { return sp.getBoolean("autoOpenMaps", true); }
     void setAutoOpenMaps(boolean v) { sp.edit().putBoolean("autoOpenMaps", v).apply(); }
+
+    /** The Settings group shown last (a SettingsGroups key), or empty before Settings was first opened. */
+    String settingsGroup() { return sp.getString("settingsGroup", ""); }
+    void setSettingsGroup(String key) { sp.edit().putString("settingsGroup", key == null ? "" : key).apply(); }
+
+    /** Open Settings over the whole screen instead of inside the panel (needs the window helper). Off by default. */
+    boolean settingsFullScreen() { return sp.getBoolean("settingsFullScreen", false); }
+    void setSettingsFullScreen(boolean v) { sp.edit().putBoolean("settingsFullScreen", v).apply(); }
 }
