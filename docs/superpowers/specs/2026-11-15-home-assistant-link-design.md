@@ -116,11 +116,12 @@ Design, agreed in conversation on 15 November 2026. Trip history in the panel (a
 
 A new `docs/home-assistant.md` with ready-to-paste YAML and steps:
 
-- **The webhook automation:** one for all cars, with `local_only: false` and a `cars` list.
+- **The webhook automation:** one for all cars, with `local_only: false`. It re-fires each message as a `glass_panel` event for the sensors.
   - It calls `device_tracker.see` (with `dev_id` set to the car name) on each `position`, `car_started` and `car_stopped`.
   - It fires a `glass_panel_reminder` event for each `reminder`.
-- **Trigger-based template sensors, per car:**
-  - status (driving or parked) and speed;
+- **Trigger-based template sensors:** one copied block per car, since template sensors can't be generated from a list. Each block has:
+  - status, which is `on` after `car_started`, `driving` while `position` messages arrive, and `parked` after `car_stopped`;
+  - speed;
   - the last drive's score, km and cost;
   - this week's fuel cost, summed from `car_stopped` and reset on Monday;
   - the estimated odometer;
@@ -131,6 +132,41 @@ A new `docs/home-assistant.md` with ready-to-paste YAML and steps:
 - **The README gets:**
   - a short "Home Assistant" section linking to this page;
   - a privacy line: it only sends to the address you enter, and only when it's switched on.
+
+## Field reference
+
+These are the agreed names and values, and the panel and the YAML must match them exactly.
+
+- **Every message:**
+  - `type`;
+  - `car`: lower-case letters, digits and `_`;
+  - `time`: ISO 8601 with the offset, the moment it happened on the unit.
+- **`car_started`:** `lat` and `lon` in degrees, left out without a GPS fix.
+- **`position`:**
+  - `lat`, `lon`;
+  - `speed_kmh` (integer) and `heading` (0–359);
+  - `accuracy_m` (integer);
+  - `trip_km` (1 decimal) and `trip_min` (integer).
+- **`car_stopped`:** `lat`, `lon` and `drive`, which holds:
+  - `km` (1 decimal) and `minutes`;
+  - `score` (0–100) and `grade` (Excellent, Good, Fair or Poor);
+  - `avg_kmh`, `max_kmh` and `idle_min`;
+  - the fuel fields, only with a car chosen: `fuel_l` (1 decimal), and `cost_rm`, `cost_without_rm` and `saved_rm` (RM, 2 decimals, rounded to 10 sen).
+  - `cost_without_rm` and `saved_rm` are left out until the prices have been fetched once.
+- **`car_status`:**
+  - `odometer_km` (integer, estimated);
+  - `service`, which holds `last_date` and `next_date` (`YYYY-MM-DD`), `last_km` and `next_km`, and `km_left` and `days_left` (negative when overdue). It also holds `due_estimate` (`YYYY-MM-DD`), left out before 7 days of drives.
+  - `road_tax`, which holds `renew_date` and `days_left`;
+  - any field the user hasn't entered is left out.
+- **`reminder`:**
+  - `what` (`service`);
+  - `level` (`soon` or `overdue`);
+  - `km_left`;
+  - `text`, ready to show, for example "Myvi: service due in ≈ 450 km".
+- **`now_playing`:** `title`, `artist` and `player`.
+- **`test`:** no extra fields.
+
+Mileage and service details are entered **on the unit only**. Editing them from the Home Assistant app was considered and dropped as too complex.
 
 ## Left to the builder
 
