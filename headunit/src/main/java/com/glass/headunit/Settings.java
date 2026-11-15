@@ -158,4 +158,29 @@ final class Settings {
     /** Send the car's events to the Home Assistant webhook. Off by default. */
     boolean haOn() { return sp.getBoolean("haOn", false); }
     void setHaOn(boolean v) { sp.edit().putBoolean("haOn", v).apply(); }
+
+    /** The Home Assistant webhook address (https only), or empty. */
+    String haUrl() { return sp.getString("haUrl", ""); }
+    void setHaUrl(String v) { sp.edit().putString("haUrl", v == null ? "" : v.trim()).putString("haError", "").apply(); }
+
+    /** The car's name in Home Assistant; empty means "from the car chosen in Settings". */
+    String haCar() { return sp.getString("haCar", ""); }
+    void setHaCar(String v) { sp.edit().putString("haCar", v == null ? "" : v.trim()).apply(); }
+
+    /** The car name actually sent: the one typed, else the chosen car's name, made safe for Home Assistant. */
+    String haCarName() {
+        String typed = haCar();
+        return HaRules.carName(typed.isEmpty() ? CarProfile.choiceLabel(car()) : typed);
+    }
+
+    /** Also send the song now playing. Off by default. */
+    boolean haNowPlaying() { return sp.getBoolean("haNowPlaying", false); }
+    void setHaNowPlaying(boolean v) { sp.edit().putBoolean("haNowPlaying", v).apply(); }
+
+    long haLastSentAt() { return sp.getLong("haLastSentAt", 0); }
+    void setHaLastSentAt(long t) { sp.edit().putLong("haLastSentAt", t).apply(); }
+
+    /** Why sending stopped (a refusal a retry won't fix), or empty. */
+    String haError() { return sp.getString("haError", ""); }
+    void setHaError(String e) { sp.edit().putString("haError", e == null ? "" : e).apply(); }
 }

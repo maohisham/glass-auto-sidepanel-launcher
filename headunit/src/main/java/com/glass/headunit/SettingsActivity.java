@@ -106,7 +106,7 @@ public class SettingsActivity extends Activity {
 
     private void buildRail() {
         rail.removeAllViews();
-        Icon[] icons = {Icon.GAUGE, Icon.NOTE, Icon.MAPS, Icon.SUN, Icon.CAR, Icon.BUBBLES, Icon.SETTINGS};
+        Icon[] icons = {Icon.GAUGE, Icon.NOTE, Icon.MAPS, Icon.SUN, Icon.CAR, Icon.BUBBLES, Icon.HOME, Icon.SETTINGS};
         boolean dot = ChecklistSummary.dot(pages.missingPermissions());
         for (int i = 0; i < SettingsGroups.KEYS.length; i++) {
             final int idx = i;

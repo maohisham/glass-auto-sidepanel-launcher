@@ -58,6 +58,7 @@ final class SettingsPages {
             case SettingsGroups.CAR: car(box); break;
             case SettingsGroups.BUBBLES: bubbles(box); break;
             case SettingsGroups.SETUP: setup(box); break;
+            case SettingsGroups.HA: homeAssistant(box); break;
             default: drive(box); break;
         }
         return box;
@@ -221,6 +222,68 @@ final class SettingsPages {
             a.stopService(new Intent(a, BubbleService.class));
             BubbleService.apply(a);
         }));
+    }
+
+    // ---- Home Assistant ----
+
+    private void homeAssistant(LinearLayout box) {
+        box.addView(w.switchRow("Send to Home Assistant", "Car started and stopped, positions while driving, each drive's results, mileage and service",
+                s.haOn(), on -> { s.setHaOn(on); if (on) HaSender.get(a).retryNow(); Spike.log("ha: " + (on ? "on" : "off")); }));
+
+        box.addView(w.title("Webhook address"));
+        final EditText url = field(s.haUrl(), "https://…/api/webhook/…", android.text.InputType.TYPE_TEXT_VARIATION_URI);
+        box.addView(url);
+        final TextView urlNote = w.note(HaRules.validUrl(s.haUrl()) || s.haUrl().isEmpty() ? "Paste the address from your Home Assistant webhook automation." : "Must start with https://");
+        box.addView(urlNote);
+        box.addView(w.bigButton("Save the address", () -> {
+            String v = url.getText().toString().trim();
+            if (!HaRules.validUrl(v)) { urlNote.setText("Must start with https://"); return; }
+            s.setHaUrl(v);
+            urlNote.setText("Saved.");
+            HaSender.get(a).retryNow();
+            Spike.log("ha: address saved");
+        }));
+
+        box.addView(w.title("Car name"));
+        final EditText car = field(s.haCar(), s.haCarName(), android.text.InputType.TYPE_CLASS_TEXT);
+        box.addView(car);
+        final TextView carNote = w.note("Sent as \"" + s.haCarName() + "\". Use a different name for each car.");
+        box.addView(carNote);
+        box.addView(w.bigButton("Save the car name", () -> {
+            s.setHaCar(car.getText().toString());
+            carNote.setText("Sent as \"" + s.haCarName() + "\". Use a different name for each car.");
+        }));
+
+        box.addView(w.switchRow("Send what's playing", "The song and the player, when the song changes", s.haNowPlaying(), s::setHaNowPlaying));
+
+        final TextView testNote = w.note("");
+        box.addView(w.bigButton("Send a test message", () -> { testNote.setText("Sending…"); HaSender.get(a).test(testNote::setText); }));
+        box.addView(testNote);
+
+        final TextView status = w.note(HaSender.get(a).status());
+        box.addView(status);
+        Runnable refresh = new Runnable() {
+            @Override public void run() {
+                if (!status.isAttachedToWindow()) return;
+                status.setText(HaSender.get(a).status());
+                h.postDelayed(this, 1000);
+            }
+        };
+        h.postDelayed(refresh, 1000);
+        box.addView(w.note("Only sent to this address, and only while this is on. Saved on the unit first, and sent when there's a signal."));
+    }
+
+    private EditText field(String value, String hint, int type) {
+        EditText e = new EditText(a);
+        e.setText(value);
+        e.setHint(hint);
+        e.setInputType(android.text.InputType.TYPE_CLASS_TEXT | type);
+        e.setSingleLine();
+        e.setTextSize(18f);
+        e.setTextColor(PanelStyle.fg(dark));
+        e.setHintTextColor(PanelStyle.dim(dark));
+        e.setMinHeight(w.dp(52));
+        return e;
     }
 
     // ---- Setup ----

@@ -40,10 +40,13 @@ final class DriveLog {
     }
 
     /** Saves the running trip (replacing its earlier save). Too-short trips are not kept. */
-    static synchronized void save(Context ctx, EcoScore trip) {
+    static synchronized void save(Context ctx, EcoScore trip) { save(ctx, trip, System.currentTimeMillis()); }
+
+    /** Saves the trip as it was at endMs: a drive that ended when the car stopped, not 10 minutes later. */
+    static synchronized void save(Context ctx, EcoScore trip, long endMs) {
         long start = trip.tripStartMs();
         if (start == 0 || paused) return;
-        long now = System.currentTimeMillis();
+        long now = endMs;
         EcoScore.Stats s = trip.calculate(now);
         if (s.distanceKm < DriveStats.MIN_KM) return;
         all(ctx);

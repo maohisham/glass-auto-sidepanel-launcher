@@ -252,6 +252,16 @@ final class MediaFollower {
     private static String str(String s) { return s == null ? "" : s; }
 
     /** A different title or artist means a new track: drop the old lyrics at once and fetch the new ones. */
+    /** The song, to Home Assistant, when the user chose to send it. */
+    private void sendNowPlaying(String pkg, String title, String artist) {
+        Settings s = Settings.of(ctx);
+        if (!s.haOn() || !s.haNowPlaying() || title.isEmpty()) return;
+        String player = pkg;
+        try { player = String.valueOf(ctx.getPackageManager().getApplicationLabel(ctx.getPackageManager().getApplicationInfo(pkg, 0))); }
+        catch (Exception ignored) { }
+        HaSender.get(ctx).enqueue(HaMessage.nowPlaying(s.haCarName(), System.currentTimeMillis(), title, artist, player));
+    }
+
     private void trackMaybeChanged() {
         if (target == null) return;
         MediaMetadata m = target.getMetadata();
@@ -260,6 +270,7 @@ final class MediaFollower {
         String key = target.getPackageName() + "|" + title + "|" + artist;
         if (key.equals(trackKey)) return;
         trackKey = key;
+        sendNowPlaying(target.getPackageName(), title, artist);
         lyrics = null;
         shownLine = -1;
         cover = null;

@@ -38,6 +38,7 @@ public class DriveRecorder extends Service {
     private final SpeedAlertPolicy alertPolicy = new SpeedAlertPolicy();
     private SpeedAlert speedAlert;
     private long startedAt, lastMoveAt;
+    private float lastAccuracy;
 
     /** Starts recording when anything uses the GPS. Call while the panel is on screen (Android then lets it keep the GPS). */
     static void start(Context c) {
@@ -108,6 +109,7 @@ public class DriveRecorder extends Service {
         if (st.speedVolume()) adjustVolume(kmh);
         if (kmh >= DriveSession.MOVING_KMH) lastMoveAt = now;
         float heading = l.hasBearing() ? l.getBearing() : 0f;
+        lastAccuracy = l.hasAccuracy() ? l.getAccuracy() : 0f;
         handle(session.onFix(now, kmh, l.getLatitude(), l.getLongitude(), heading));
         route.add(now, l.getLatitude(), l.getLongitude(), kmh, heading);
         for (Listener x : LISTENERS) x.onSpeed(kmh);
@@ -122,13 +124,14 @@ public class DriveRecorder extends Service {
                     break;
                 case END:
                     route.end();
-                    DriveLog.save(this, DriveTrip.trip());
+                    DriveLog.save(this, DriveTrip.trip(), e.time);   // as it was when the car stopped
                     Spike.log("recorder: drive ended");
                     break;
                 default:
                     break;
             }
-            DriveEvents.publish(this, e);
+            DriveEvents.publish(this, e, lastAccuracy);
+            if (e.kind == DriveSession.Kind.END) DriveTrip.trip().reset();   // the next drive is a new trip
         }
         if (!events.isEmpty()) save();
     }
@@ -156,7 +159,7 @@ public class DriveRecorder extends Service {
         if (ev.isEmpty()) return;
         p.edit().putString("session", s.save()).apply();
         Spike.log("recorder: closed a drive left open by a power cut");
-        for (DriveSession.Event e : ev) DriveEvents.publish(c, e);
+        for (DriveSession.Event e : ev) DriveEvents.publish(c, e, 0f);
     }
 
     private static android.content.SharedPreferences prefs(Context c) {

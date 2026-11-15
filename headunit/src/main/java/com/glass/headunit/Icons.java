@@ -128,6 +128,14 @@ final class Icons {
                 c.drawPath(p, stroke);
                 break;
             }
+            case HOME: {   // a house: roof and walls with a door
+                Path p = new Path();
+                p.moveTo(3.5f, 11.5f); p.lineTo(12, 4); p.lineTo(20.5f, 11.5f);
+                p.moveTo(6, 9.5f); p.lineTo(6, 20); p.lineTo(18, 20); p.lineTo(18, 9.5f);
+                p.moveTo(10, 20); p.lineTo(10, 14.5f); p.lineTo(14, 14.5f); p.lineTo(14, 20);
+                c.drawPath(p, stroke);
+                break;
+            }
             case BUBBLES: {   // two overlapping circles, one larger
                 c.drawCircle(9.5f, 13.5f, 6f, stroke);
                 c.drawCircle(17f, 7.5f, 3.6f, stroke);
