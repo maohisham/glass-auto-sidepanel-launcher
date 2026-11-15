@@ -23,4 +23,16 @@ public class StartSummaryTest {
     @Test public void offlineLeavesWeatherOut() {
         assertEquals(Arrays.asList("Good morning", "Subuh 5:58 am · in 20m"), StartSummary.lines(5, null, null, "Subuh 5:58 am · in 20m", -1, 0f));
     }
+
+    @Test public void aStartWithTheSettingOffIsUsedUp() {
+        StartSummary.arm("test");
+        assertFalse(StartSummary.takeIfOn(false));
+        assertFalse(StartSummary.takeIfOn(true));    // turning it on mid-drive doesn't show an old start's card
+    }
+
+    @Test public void takeIfOnShowsOnce() {
+        StartSummary.arm("test");
+        assertTrue(StartSummary.takeIfOn(true));
+        assertFalse(StartSummary.takeIfOn(true));
+    }
 }

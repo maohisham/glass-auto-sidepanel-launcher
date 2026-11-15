@@ -57,6 +57,7 @@ public class PanelActivity extends Activity {
             }
             if (!demo && tickCount % 30 == 0) DriveLog.save(PanelActivity.this, DriveTrip.trip());   // the running trip, into the drive log
             if (tickCount % 60 == 0) everyMinute();
+            if (!demo && controller != null) checkSummary();   // a wake can arrive after onStart, or with no onStart at all
             handler.postDelayed(this, 1000);
         }
     };
@@ -130,6 +131,13 @@ public class PanelActivity extends Activity {
     private String rainShown = "";
     private boolean summaryPending;
     private final Runnable showSummary = this::showSummary;
+
+    /** Shows the start-of-drive card once after a new start, a moment later so the weather and prayer data can arrive. */
+    private void checkSummary() {
+        if (summaryPending || !StartSummary.takeIfOn(Settings.of(this).startSummary())) return;
+        summaryPending = true;
+        handler.postDelayed(showSummary, 4000);
+    }
 
     /** The start-of-drive card over the panel: it fades after 10 seconds, a tap closes it sooner. */
     private void showSummary() {
@@ -387,10 +395,7 @@ public class PanelActivity extends Activity {
         }
         follower = new MediaFollower(this, n -> { lastNow = n; panel.showNowPlaying(n); });
         controller = new PanelController(this, (p, w, off, loc) -> { onData(p, w); panel.showData(p, w, off, loc); });
-        if (Settings.of(this).startSummary() && StartSummary.take()) {
-            summaryPending = true;
-            handler.postDelayed(showSummary, 4000);   // a moment for the weather and prayer data to arrive
-        }
+        checkSummary();
         controller.setForecastListener(f -> { forecast = f; if (weatherScreen != null) weatherScreen.setForecast(f); updateRain(); });
         panel.setControls(new PanelView.Controls() {
             @Override public void play() { follower.play(); }

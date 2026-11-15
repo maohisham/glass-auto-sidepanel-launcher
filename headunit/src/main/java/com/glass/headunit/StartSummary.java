@@ -26,6 +26,11 @@ final class StartSummary {
         return was;
     }
 
+    /** Uses up the start either way, and says to show the card only when the setting is on. */
+    static synchronized boolean takeIfOn(boolean settingOn) {
+        return take() && settingOn;
+    }
+
     static String greeting(int hour) {
         if (hour >= 4 && hour < 12) return "Good morning";
         if (hour >= 12 && hour < 18) return "Good afternoon";
