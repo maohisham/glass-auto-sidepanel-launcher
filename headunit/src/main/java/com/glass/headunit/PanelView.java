@@ -527,13 +527,22 @@ final class PanelView extends LinearLayout {
         updateStrip();
     }
 
+    private String rainLine;
+
+    /** A rain heads-up shown in place of the place name, or null for the usual line. */
+    void setRainLine(String line) {
+        if (java.util.Objects.equals(line, rainLine)) return;
+        rainLine = line;
+        bindWeather();
+    }
+
     /** Temperature and place on one line when they fit, else the place on the line below. */
     private void bindWeather() {
         if (weatherText == null) return;
         if (weather == null) { weatherText.setText(""); return; }
         String temp = weather.emoji + " " + Math.round(weather.tempC) + "°C";
         int room = weatherText.getWidth() - weatherText.getPaddingLeft() - weatherText.getPaddingRight();
-        String text = WeatherLine.build(temp, weather.city, room, s -> weatherText.getPaint().measureText(s));
+        String text = WeatherLine.build(temp, rainLine != null ? rainLine : weather.city, room, s -> weatherText.getPaint().measureText(s));
         if (!text.contentEquals(weatherText.getText())) weatherText.setText(text);
     }
 

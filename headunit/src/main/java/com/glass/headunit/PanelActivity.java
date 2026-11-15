@@ -127,7 +127,18 @@ public class PanelActivity extends Activity {
     }
 
     /** Once a minute: the Sun theme switches at Maghrib and Syuruk. */
+    private String rainShown = "";
+
+    /** The rain heads-up in the weather line: from the forecast, from the current hour. */
+    private void updateRain() {
+        String line = forecast == null ? null : RainSoon.line(forecast.hours, java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY), forecast.code);
+        String shown = line == null ? "none" : line;
+        if (!shown.equals(rainShown)) { rainShown = shown; Spike.log("rain: " + shown); }
+        panel.setRainLine(line);
+    }
+
     private void everyMinute() {
+        if (!demo) updateRain();
         boolean dark = Themes.dark(this);
         if (darkApplied != null && dark != darkApplied) {
             Spike.log("theme: sun switches to " + (dark ? "dark" : "light"));
@@ -322,7 +333,7 @@ public class PanelActivity extends Activity {
         }
         follower = new MediaFollower(this, n -> { lastNow = n; panel.showNowPlaying(n); });
         controller = new PanelController(this, (p, w, off, loc) -> { onData(p, w); panel.showData(p, w, off, loc); });
-        controller.setForecastListener(f -> { forecast = f; if (weatherScreen != null) weatherScreen.setForecast(f); });
+        controller.setForecastListener(f -> { forecast = f; if (weatherScreen != null) weatherScreen.setForecast(f); updateRain(); });
         panel.setControls(new PanelView.Controls() {
             @Override public void play() { follower.play(); }
             @Override public void pause() { follower.pause(); }

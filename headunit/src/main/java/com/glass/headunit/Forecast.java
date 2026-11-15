@@ -8,9 +8,10 @@ final class Forecast {
 
     static final class Hour {
         final String label;
+        final int hour24;        // the hour of the day, 0 to 23, so a forecast fetched earlier can be read from the current hour
         final float tempC;
         final int code, rainPct;
-        Hour(String label, float tempC, int code, int rainPct) { this.label = label; this.tempC = tempC; this.code = code; this.rainPct = rainPct; }
+        Hour(String label, int hour24, float tempC, int code, int rainPct) { this.label = label; this.hour24 = hour24; this.tempC = tempC; this.code = code; this.rainPct = rainPct; }
     }
 
     static final class Day {

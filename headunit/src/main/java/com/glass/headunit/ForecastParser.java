@@ -54,7 +54,7 @@ final class ForecastParser {
             }
             for (int i = start; i < times.length() && f.hours.size() < 24; i++) {
                 int hh = Integer.parseInt(times.getString(i).substring(11, 13));
-                f.hours.add(new Forecast.Hour(hourLabel(hh), (float) temps.optDouble(i, 0),
+                f.hours.add(new Forecast.Hour(hourLabel(hh), hh, (float) temps.optDouble(i, 0),
                         codes == null ? 0 : codes.optInt(i, 0), rain == null ? 0 : rain.optInt(i, 0)));
             }
 
