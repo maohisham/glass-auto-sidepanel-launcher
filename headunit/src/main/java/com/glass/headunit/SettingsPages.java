@@ -69,7 +69,12 @@ final class SettingsPages {
     private void drive(LinearLayout box) {
         box.addView(w.switchRow("Speed alert", "Beeps once when over the limit, while the panel is open", s.speedAlert(), s::setSpeedAlert));
         box.addView(w.stepper("Alert above", null, s.speedLimit(), " km/h", 5, 40, 180, s::setSpeedLimit));
-        box.addView(w.stepper("Beep volume", "Of the media volume. Music keeps playing.", s.beepVolume(), "%", 5, 10, 100, s::setBeepVolume));
+        box.addView(w.segments("Beep sound", new String[]{"Separate", "With the music"}, s.beepSeparate() ? 0 : 1, i -> {
+            s.setBeepSeparate(i == 0);
+            Spike.log("speed alert: beep " + (i == 0 ? "on the alarm volume, separate from the music" : "on the media volume, with the music"));
+        }));
+        box.addView(w.note("Separate: the beep uses the alarm volume, so the music isn't turned up with it. With the music: the beep raises the media volume for a moment, as before."));
+        box.addView(w.stepper("Beep volume", "Raised for the beep, then put back. Music keeps playing.", s.beepVolume(), "%", 5, 10, 100, s::setBeepVolume));
         box.addView(w.bigButton("Test the alert sound", () -> new SpeedAlert(a).play()));
         box.addView(w.switchRow("Raise the volume with speed", "One step at 80 km/h, two at 100. Touch the volume and it stops for the drive.", s.speedVolume(), s::setSpeedVolume));
         box.addView(w.switchRow("Driving score and speed", "Uses the GPS while the panel is open", s.driveScore(), s::setDriveScore));

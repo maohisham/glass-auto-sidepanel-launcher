@@ -187,4 +187,8 @@ final class Settings {
     /** The odometer, service and road tax details entered on the unit (see Mileage). */
     Mileage.State mileageState() { return Mileage.State.fromJson(sp.getString("mileage", "")); }
     void setMileageState(Mileage.State m) { sp.edit().putString("mileage", m.toJson()).apply(); }
+
+    /** Play the speed beep on the alarm volume, separate from the music (on by default), or with the music as before. */
+    boolean beepSeparate() { return sp.getBoolean("beepSeparate", true); }
+    void setBeepSeparate(boolean v) { sp.edit().putBoolean("beepSeparate", v).apply(); }
 }

@@ -24,4 +24,9 @@ public class BeepVolumeTest {
         assertEquals(-1, BeepVolume.restoreLevel(true, 4, 11, 8));    // the driver changed it: leave it
         assertEquals(-1, BeepVolume.restoreLevel(false, 4, 4, 4));    // never raised: nothing to do
     }
+
+    @Test public void separateUsesTheAlarmVolume() {
+        assertEquals(android.media.AudioManager.STREAM_ALARM, BeepVolume.stream(true));
+        assertEquals(android.media.AudioManager.STREAM_MUSIC, BeepVolume.stream(false));
+    }
 }

@@ -22,4 +22,7 @@ final class BeepVolume {
     static int restoreLevel(boolean raised, int before, int raisedTo, int nowLevel) {
         return raised && shouldRestore(raisedTo, nowLevel) ? before : -1;
     }
+
+    /** Which volume the beep uses: the alarm volume (separate, the music isn't touched) or the media volume. */
+    static int stream(boolean separate) { return separate ? android.media.AudioManager.STREAM_ALARM : android.media.AudioManager.STREAM_MUSIC; }
 }
