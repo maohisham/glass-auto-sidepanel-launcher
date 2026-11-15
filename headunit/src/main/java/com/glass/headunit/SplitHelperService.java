@@ -232,12 +232,14 @@ public class SplitHelperService extends AccessibilityService {
 
     /** Opens Settings over the whole screen: leaves the split first when there is one, as for the Android Auto app. */
     void openSettingsFullScreen() {
+        final boolean wasSplit = isSplit();
         Runnable open = () -> {
-            Intent i = new Intent(this, SettingsActivity.class).putExtra(SettingsActivity.EXTRA_FULL, true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            Intent i = new Intent(this, SettingsActivity.class).putExtra(SettingsActivity.EXTRA_FULL, true)
+                    .putExtra(SettingsActivity.EXTRA_WAS_SPLIT, wasSplit).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             try { startActivity(i); Spike.log("helper: opened Settings full screen"); }
             catch (Exception e) { Spike.log("helper: could not open Settings (" + e.getClass().getSimpleName() + ")"); }
         };
-        if (isSplit()) {
+        if (wasSplit) {
             Spike.log("helper: leaving the split to open Settings full screen");
             toggleSplit();
             handler.postDelayed(open, 1200);

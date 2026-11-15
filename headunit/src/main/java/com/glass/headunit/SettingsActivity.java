@@ -15,7 +15,7 @@ import android.widget.ScrollView;
  */
 public class SettingsActivity extends Activity {
 
-    static final String EXTRA_FULL = "full";
+    static final String EXTRA_FULL = "full", EXTRA_WAS_SPLIT = "wasSplit";
     private static final int REQ_PICTURE = 4721;
 
     private Settings s;
@@ -26,7 +26,7 @@ public class SettingsActivity extends Activity {
     private LinearLayout rail, body;
     private ScrollView scroll;
     private String pickingFor = "";
-    private boolean full;   // opened over the whole screen: closing it lays the panel and map out again
+    private boolean full, wasSplit;   // opened over the whole screen; closing it lays the panel and map out again if they were split
 
     @Override
     protected void onCreate(Bundle b) {
@@ -34,6 +34,7 @@ public class SettingsActivity extends Activity {
         setTitle("Settings");
         s = Settings.of(this);
         full = getIntent().getBooleanExtra(EXTRA_FULL, false);
+        wasSplit = getIntent().getBooleanExtra(EXTRA_WAS_SPLIT, false);
         Configuration c = getResources().getConfiguration();
         boolean night = (c.uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         boolean dark = PanelStyle.isDark(s.theme(), night);
@@ -75,7 +76,8 @@ public class SettingsActivity extends Activity {
     protected void onPause() {
         super.onPause();
         SplitHelperService h = SplitHelperService.get();
-        if (SettingsOpen.restoreOnFinish(full, isFinishing()) && h != null) {
+        if (full && isFinishing() && !wasSplit) Spike.log("settings: closed full screen; the screen was not split before, so leaving it as it is");
+        if (SettingsOpen.restoreOnFinish(full, isFinishing(), wasSplit) && h != null) {
             Spike.log("settings: closed full screen, laying out the panel and map again");
             h.restoreLayout();
         }
@@ -86,8 +88,7 @@ public class SettingsActivity extends Activity {
         group = i;
         s.setSettingsGroup(SettingsGroups.KEYS[i]);
         Spike.log("settings: group " + SettingsGroups.KEYS[i]);
-        rebuildBody();
-        scroll.scrollTo(0, 0);
+        rebuildBody(false);
     }
 
     private void buildRail() {
@@ -105,8 +106,11 @@ public class SettingsActivity extends Activity {
     }
 
     /** Rebuilds the rail and the chosen group's content, keeping the scroll position. */
-    void rebuildBody() {
-        final int y = scroll.getScrollY();
+    void rebuildBody() { rebuildBody(true); }
+
+    /** keepScroll false opens the group at the top (a new group was chosen in the rail). */
+    private void rebuildBody(boolean keepScroll) {
+        final int y = keepScroll ? scroll.getScrollY() : 0;
         buildRail();
         body.removeAllViews();
         String key = SettingsGroups.KEYS[group];
