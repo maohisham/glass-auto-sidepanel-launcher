@@ -54,7 +54,6 @@ public class SplitHelperService extends AccessibilityService {
     @Override
     protected void onServiceConnected() {
         instance = this;
-        Settings.of(this).setHelperWasOn(true);
         Spike.log("helper: connected");
         // Android starts an enabled accessibility service by itself at boot: if this is the boot, lay the screen out
         if (SystemClock.elapsedRealtime() < 3 * 60_000L) handler.postDelayed(this::startLayout, 12_000);

@@ -124,8 +124,4 @@ final class Settings {
     /** Open Settings over the whole screen instead of inside the panel (needs the window helper). Off by default. */
     boolean settingsFullScreen() { return sp.getBoolean("settingsFullScreen", false); }
     void setSettingsFullScreen(boolean v) { sp.edit().putBoolean("settingsFullScreen", v).apply(); }
-
-    /** The window helper has been on at least once on this unit, so finding it off later means Android switched it off. */
-    boolean helperWasOn() { return sp.getBoolean("helperWasOn", false); }
-    void setHelperWasOn(boolean v) { sp.edit().putBoolean("helperWasOn", v).apply(); }
 }
