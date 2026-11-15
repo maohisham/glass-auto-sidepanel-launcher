@@ -158,7 +158,7 @@ final class MediaFollower {
         c.registerCallback(mirror, handler);
         bindCompat(c, true);
         Spike.log("following " + c.getPackageName());
-        if (!c.getPackageName().equals(shuffleCheckedPkg)) { shuffleCheckedPkg = c.getPackageName(); final String pkg = c.getPackageName(); handler.postDelayed(() -> { if (target != null && pkg.equals(target.getPackageName())) restoreShuffle(target); }, 1500); }   // the shuffle state arrives a moment after connecting
+        if (!c.getPackageName().equals(shuffleCheckedPkg)) { shuffleCheckedPkg = c.getPackageName(); final String pkg = c.getPackageName(); handler.postDelayed(() -> restoreShuffle(pkg, 0), 1500); }   // the shuffle state arrives a moment after connecting
         trackMaybeChanged();
     }
 
@@ -204,9 +204,16 @@ final class MediaFollower {
     };
 
     /** Sets shuffle back the way it was last left in this player, once each time we start following it. */
-    private void restoreShuffle(MediaController c) {
-        if (compat == null) return;
-        Integer mode = ShuffleMemory.toApply(Settings.of(ctx).shuffleFor(c.getPackageName()), compat.getShuffleMode(), shuffleAvailable());
+    private void restoreShuffle(final String pkg, final int attempt) {
+        MediaController c = target;
+        if (c == null || !pkg.equals(c.getPackageName()) || compat == null) return;
+        int current = compat.getShuffleMode();
+        if (ShuffleMemory.retry(current, shuffleAvailable(), attempt)) {
+            Spike.log("shuffle: " + pkg + " hasn't said its shuffle state yet, trying again");
+            handler.postDelayed(() -> restoreShuffle(pkg, attempt + 1), 1500);
+            return;
+        }
+        Integer mode = ShuffleMemory.toApply(Settings.of(ctx).shuffleFor(c.getPackageName()), current, shuffleAvailable());
         if (mode == null) return;
         compat.getTransportControls().setShuffleMode(mode);
         Spike.log("shuffle: set " + c.getPackageName() + " back to " + (mode > 0 ? "on" : "off"));

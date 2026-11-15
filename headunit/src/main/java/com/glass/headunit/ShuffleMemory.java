@@ -14,4 +14,9 @@ final class ShuffleMemory {
         if ((remembered > 0) == (current > 0)) return null;
         return remembered;
     }
+
+    /** Try again a moment later: the player hasn't said its shuffle state yet (up to 3 tries). */
+    static boolean retry(int current, boolean available, int attempt) {
+        return attempt < 3 && (current < 0 || !available);
+    }
 }

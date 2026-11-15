@@ -21,7 +21,7 @@ public final class ShareToPinActivity extends Activity {
         Pin p = ShareLink.parse(text, subject);
         if (p != null && ShareLink.YOUTUBE_MUSIC.equals(p.pkg)) p.pkg = orEmpty(ShareLink.resolveYouTubeMusic(launcherApps()));
         if (p == null || p.pkg.isEmpty()) {
-            Spike.log("pins: can't pin the shared text '" + text + "'");
+            Spike.log("pins: can't pin the shared link '" + ShareLink.firstLink(text) + "'");
             Toast.makeText(this, "Can't pin this link", Toast.LENGTH_SHORT).show();
         } else {
             boolean added = Pins.pin(this, p, null);

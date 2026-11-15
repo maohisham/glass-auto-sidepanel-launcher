@@ -109,9 +109,16 @@ final class PlayerPicker extends LinearLayout {
 
     /** Back closes the search field first; false when there is nothing to close (so the caller can close the picker). */
     boolean handleBack() {
-        if (!searchOpen) return false;
+        if (!searchOpen && !pinMenuOpen) return false;
         showMain();
         return true;
+    }
+
+    private boolean pinMenuOpen;
+
+    /** Redraws the main view (a playlist may have been shared to the panel meanwhile); search and the tile menu are left alone. */
+    void refresh() {
+        if (!searchOpen && !pinMenuOpen) showMain();
     }
 
     // ---- players ----
@@ -192,6 +199,7 @@ final class PlayerPicker extends LinearLayout {
     /** Quick picks first, then Recent, then a Search button: everything reachable with one tap while driving. */
     private void showMain() {
         searchOpen = false;
+        pinMenuOpen = false;
         content.removeAllViews();
         content.addView(label("Quick picks", 15, true, PanelStyle.dim(dark)));
         List<Pin> pins = Pins.all(ctx);
@@ -286,11 +294,11 @@ final class PlayerPicker extends LinearLayout {
             art.addView(appIcon(p.pkg, 64), new android.widget.FrameLayout.LayoutParams(Glass.dp(ctx, 64), Glass.dp(ctx, 64), Gravity.CENTER));
         }
         t.addView(art, new LayoutParams(LayoutParams.MATCH_PARENT, Glass.dp(ctx, 64)));
-        TextView name = label(p.name, 14, true, PanelStyle.fg(dark));
+        TextView name = label(p.name, 16, true, PanelStyle.fg(dark));
         name.setMaxLines(2);
         name.setEllipsize(TextUtils.TruncateAt.END);
         t.addView(name, gapParams(6));
-        t.addView(label(p.kindLabel(), 12, false, PanelStyle.dim(dark)));
+        t.addView(label(p.kindLabel(), 13, false, PanelStyle.dim(dark)));
         t.setOnClickListener(v -> {
             if (!installed(p.pkg)) { Spike.log("pin: " + p.pkg + " is not installed"); return; }
             switcher.playPin(p);
@@ -303,6 +311,7 @@ final class PlayerPicker extends LinearLayout {
     /** Held a tile: move it or unpin it. */
     private void showPinMenu(final Pin p) {
         content.removeAllViews();
+        pinMenuOpen = true;
         content.addView(label(p.name, 18, true, PanelStyle.fg(dark)));
         content.addView(bigButton("Move left", () -> { Pins.save(ctx, Pins.move(Pins.all(ctx), p.key(), -1)); showMain(); }), gapParams(12));
         content.addView(bigButton("Move right", () -> { Pins.save(ctx, Pins.move(Pins.all(ctx), p.key(), +1)); showMain(); }), gapParams(10));

@@ -3,6 +3,7 @@ package com.glass.headunit;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
+import static org.junit.Assert.assertNotNull;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -42,4 +43,14 @@ public class ShareLinkTest {
         assertEquals("https://open.spotify.com/playlist/37i9dQ", c.link);
         assertEquals(c.key(), d.key());
     }
+
+    @Test public void httpCountsAsHttps() { assertEquals("https://music.youtube.com/playlist?list=PL1", ShareLink.parse("http://music.youtube.com/playlist?list=PL1", "Mix").link); }
+    @Test public void watchWithListIsThePlaylist() { assertEquals("https://music.youtube.com/playlist?list=RDCLAK5", ShareLink.parse("https://music.youtube.com/watch?v=abc&list=RDCLAK5&si=x", "Supermix").link); }
+    @Test public void watchWithoutListIsRefused() { assertNull(ShareLink.parse("https://music.youtube.com/watch?v=abc", null)); }
+    @Test public void browsePlaylistAndAlbumOnly() {
+        assertNotNull(ShareLink.parse("https://music.youtube.com/browse/VLPL123", "A"));
+        assertNotNull(ShareLink.parse("https://music.youtube.com/browse/MPREb_456", "B"));
+        assertNull(ShareLink.parse("https://music.youtube.com/browse/UCartist", "Artist"));
+    }
+    @Test public void firstLinkForTheLog() { assertEquals("https://x.y/z", ShareLink.firstLink("Listen to this https://x.y/z now")); assertEquals("", ShareLink.firstLink("no link here")); }
 }

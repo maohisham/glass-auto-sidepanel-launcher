@@ -303,11 +303,20 @@ public class PanelActivity extends Activity {
     }
 
     /** A small box over the panel: "Playlist: <name>" or "Just this song". Tapping outside it cancels. */
+    private android.view.View pinChoice;   // the "Pin to Quick picks" choice, while it is open
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (picker != null) picker.refresh();   // a playlist shared to the panel while the picker was open shows up now
+    }
+
     private void showPinChoice(java.util.List<Pin> options, android.graphics.Bitmap cover) {
         Settings s = Settings.of(this);
         boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         boolean dark = Themes.dark(this, night);
         final android.widget.FrameLayout shade = new android.widget.FrameLayout(this);
+        pinChoice = shade;
         shade.setBackgroundColor(0x99000000);
         shade.setOnClickListener(v -> root.removeView(shade));
         android.widget.LinearLayout box = new android.widget.LinearLayout(this);
@@ -424,6 +433,7 @@ public class PanelActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+        if (pinChoice != null && pinChoice.getParent() != null) { root.removeView(pinChoice); pinChoice = null; return; }
         if (weatherScreen != null) { hideWeather(); return; }
         if (driveScreen != null) { hideDrive(); return; }
         if (prayerScreen != null) { hidePrayer(); return; }

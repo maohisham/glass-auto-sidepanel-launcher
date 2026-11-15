@@ -13,7 +13,7 @@ final class ShareLink {
     /** Stands for "whichever YouTube Music is installed" until ShareToPinActivity looks it up. */
     static final String YOUTUBE_MUSIC = "youtube.music";
 
-    private static final Pattern URL = Pattern.compile("https://\\S+");
+    private static final Pattern URL = Pattern.compile("https?://\\S+");
 
     private ShareLink() { }
 
@@ -22,9 +22,12 @@ final class ShareLink {
         if (text == null) return null;
         Matcher m = URL.matcher(text);
         if (!m.find()) return null;
-        String url = canonical(m.group().replaceAll("[).,;!]+$", ""));
+        String raw = m.group().replaceAll("[).,;!]+$", "");
+        if (raw.startsWith("http://")) raw = "https://" + raw.substring(7);
+        String url = canonical(raw);
         String pkg;
-        if (url.startsWith("https://music.youtube.com/playlist?list=") || url.startsWith("https://music.youtube.com/browse/")) pkg = YOUTUBE_MUSIC;
+        if (url.startsWith("https://music.youtube.com/playlist?list=")
+                || url.startsWith("https://music.youtube.com/browse/VL") || url.startsWith("https://music.youtube.com/browse/MPRE")) pkg = YOUTUBE_MUSIC;
         else if (url.startsWith("https://open.spotify.com/playlist/") || url.startsWith("https://open.spotify.com/album/")) pkg = "com.spotify.music";
         else return null;
         String name = subject == null ? "" : subject.trim();
@@ -39,12 +42,19 @@ final class ShareLink {
     static String canonical(String url) {
         int q = url.indexOf('?');
         if (url.startsWith("https://open.spotify.com/")) return q < 0 ? url : url.substring(0, q);
-        if (url.startsWith("https://music.youtube.com/playlist") && q >= 0) {
+        if ((url.startsWith("https://music.youtube.com/playlist") || url.startsWith("https://music.youtube.com/watch")) && q >= 0) {
             for (String part : url.substring(q + 1).split("&"))
                 if (part.startsWith("list=")) return "https://music.youtube.com/playlist?" + part;
         }
         if (url.startsWith("https://music.youtube.com/browse/")) return q < 0 ? url : url.substring(0, q);
         return url;
+    }
+
+    /** The first link in a shared text, for the log (never the whole text), or "". */
+    static String firstLink(String text) {
+        if (text == null) return "";
+        Matcher m = URL.matcher(text);
+        return m.find() ? m.group() : "";
     }
 
     /** The installed YouTube Music (Google's, or a patched one such as Morphe's), from {package, label} pairs; null when none. */
