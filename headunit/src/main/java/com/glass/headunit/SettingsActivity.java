@@ -16,7 +16,7 @@ import android.widget.ScrollView;
 public class SettingsActivity extends Activity {
 
     static final String EXTRA_FULL = "full", EXTRA_WAS_SPLIT = "wasSplit";
-    private static final int REQ_PICTURE = 4721, REQ_PHOTOS = 4722;
+    private static final int REQ_PICTURE = 4721, REQ_PHOTOS = 4722, REQ_GALLERY = 4723;
 
     private Settings s;
     private SettingsWidgets w;
@@ -48,6 +48,7 @@ public class SettingsActivity extends Activity {
         Configuration c = getResources().getConfiguration();
         boolean night = (c.uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         boolean dark = Themes.dark(this, night);
+        darkTheme = dark;
         wide = SettingsLayout.wide(c.screenWidthDp);
         w = new SettingsWidgets(this, dark);
         pages = new SettingsPages(this, s, w, dark);
@@ -142,6 +143,25 @@ public class SettingsActivity extends Activity {
         }
     }
 
+    private boolean darkTheme;
+
+    /**
+     * "Use my own picture": Glass Panel's own chooser of the unit's photos (it needs only the photo permission, so it
+     * works where the unit's gallery hands back a link other apps may not open). Without the permission it asks first;
+     * refused, the unit's own picker opens instead.
+     */
+    void choosePhoto(String carId) {
+        pickingFor = carId;
+        String perm = PictureAccess.permission(android.os.Build.VERSION.SDK_INT);
+        if (checkSelfPermission(perm) == android.content.pm.PackageManager.PERMISSION_GRANTED) { showChooser(carId); return; }
+        Spike.log("car picture: asking for the photo permission for the chooser");
+        requestPermissions(new String[]{perm}, REQ_GALLERY);
+    }
+
+    private void showChooser(String carId) {
+        PhotoChooser.show(this, darkTheme, uri -> readPicture(carId, uri, true), () -> pickPicture(carId));
+    }
+
     /** Opens the unit's photo picker; the chosen picture is copied into the app and cropped to the card's shape. */
     void pickPicture(String carId) {
         pickingFor = carId;
@@ -216,6 +236,13 @@ public class SettingsActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int code, String[] perms, int[] results) {
         super.onRequestPermissionsResult(code, perms, results);
+        if (code == REQ_GALLERY) {
+            boolean ok = results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED;
+            Spike.log("car picture: photo permission " + (ok ? "allowed, opening the chooser" : "refused, opening the unit's picker"));
+            if (pickingFor.isEmpty()) return;
+            if (ok) showChooser(pickingFor); else pickPicture(pickingFor);
+            return;
+        }
         if (code == REQ_PHOTOS && pendingPicture != null && !pendingCar.isEmpty()) {
             boolean ok = results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED;
             Spike.log("car picture: photo permission " + (ok ? "allowed, reading the picture again" : "refused"));

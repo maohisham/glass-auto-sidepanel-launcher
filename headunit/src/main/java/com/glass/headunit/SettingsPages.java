@@ -202,7 +202,7 @@ final class SettingsPages {
             }
         });
         details.addView(real);
-        details.addView(w.bigButton("Use my own picture", () -> a.pickPicture(p.id)));
+        details.addView(w.bigButton("Use my own picture", () -> a.choosePhoto(p.id)));
         if (CarPicture.has(a, p.id)) {
             details.addView(w.bigButton("Remove my picture (back to the drawn car)", () -> { CarPicture.remove(a, p.id); a.rebuildBody(); }));
         }
