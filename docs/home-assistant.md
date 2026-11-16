@@ -89,6 +89,8 @@ template:
             car: myvi
       - platform: time
         at: "00:01:00"               # daily, so the day counts and the weekly cost stay right
+      - platform: time_pattern
+        minutes: "/5"                # a car that went quiet while driving is marked parked (below)
     sensor:
       - name: "Myvi status"
         unique_id: glass_panel_myvi_status
@@ -98,7 +100,12 @@ template:
           {% if m.type == 'car_started' %}on
           {% elif m.type == 'position' %}driving
           {% elif m.type == 'car_stopped' %}parked
+          {# the unit can lose power before it says "stopped" (it says so at the next start): after 15 minutes
+             without a message, a driving car is parked #}
+          {% elif this.state in ['driving', 'on'] and now() - (as_datetime(this.attributes.last_seen) if this.attributes.get('last_seen') else this.last_changed) > timedelta(minutes=15) %}parked
           {% else %}{{ this.state if this.state not in ['unknown', 'unavailable'] else 'parked' }}{% endif %}
+        attributes:
+          last_seen: "{{ now().isoformat() if trigger.platform == 'event' else this.attributes.get('last_seen') }}"
 
       - name: "Myvi speed"
         unique_id: glass_panel_myvi_speed
@@ -107,6 +114,7 @@ template:
           {% set m = trigger.event.data.msg if trigger.platform == 'event' else {} %}
           {% if m.type == 'position' %}{{ m.speed_kmh }}
           {% elif m.type in ['car_started', 'car_stopped'] %}0
+          {% elif state_attr('sensor.myvi_status', 'last_seen') and now() - as_datetime(state_attr('sensor.myvi_status', 'last_seen')) > timedelta(minutes=15) %}0
           {% else %}{{ this.state | int(0) }}{% endif %}
 
       - name: "Myvi last drive"
