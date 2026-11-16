@@ -57,4 +57,10 @@ final class MileageDraft {
         s.roadTaxDate = d.roadTaxDate;
         return true;
     }
+
+    /** Service done today, after first saving what was typed (so a reading typed at the garage is the service km). */
+    static void serviceDone(MileageDraft d, Mileage.State s, long now, java.util.TimeZone tz) {
+        apply(d, s, now);
+        Mileage.serviceDone(s, now, tz);
+    }
 }

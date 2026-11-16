@@ -216,8 +216,10 @@ final class SettingsPages {
         Mileage.State m = s.mileageState();
         Mileage.Status st = CarStatus.status(a);
         // everything here is a draft until "Save mileage and service": picking a date doesn't rebuild, so typed km stay
-        final MileageDraft d = MileageDraft.of(m, st.odometerKm);
-        final TextView saved = w.note("");
+        if (a.mileageDraft == null) a.mileageDraft = MileageDraft.of(m, st.odometerKm);
+        final MileageDraft d = a.mileageDraft;
+        final TextView saved = w.note(a.mileageSaved ? "Saved." : d.differs(m) ? "Not saved yet" : "");
+        a.mileageSaved = false;
         final Runnable changed = () -> saved.setText(d.differs(s.mileageState()) ? "Not saved yet" : "");
 
         f.addView(w.title("Odometer now"));
@@ -244,6 +246,8 @@ final class SettingsPages {
             Mileage.State x = s.mileageState();
             if (!MileageDraft.apply(d, x, System.currentTimeMillis())) { saved.setText("Nothing to save."); return; }
             s.setMileageState(x);
+            a.mileageDraft = null;
+            a.mileageSaved = true;
             Spike.log("mileage: saved, odometer ≈ " + Mileage.odometer(x) + " km");
             CarStatus.send(a);
             a.rebuildBody();
@@ -252,8 +256,10 @@ final class SettingsPages {
 
         f.addView(w.bigButton("Service done today", () -> {
             Mileage.State x = s.mileageState();
-            Mileage.serviceDone(x, System.currentTimeMillis(), java.util.TimeZone.getDefault());
+            MileageDraft.serviceDone(d, x, System.currentTimeMillis(), java.util.TimeZone.getDefault());
             s.setMileageState(x);
+            a.mileageDraft = null;
+            a.mileageSaved = true;
             Spike.log("mileage: service done, next suggested at " + x.nextServiceKm + " km or " + x.nextServiceDate);
             CarStatus.send(a);
             a.rebuildBody();

@@ -99,4 +99,14 @@ public class MileageDraftTest {
         assertFalse(MileageDraft.apply(d, s, NOW));
         assertEquals(80_000, s.enteredKm);
     }
+
+    @Test public void serviceDoneUsesTheTypedReading() {
+        Mileage.State s = state();
+        MileageDraft d = MileageDraft.of(s, Mileage.odometer(s));
+        d.odometerText = "80,450";
+        MileageDraft.serviceDone(d, s, NOW, java.util.TimeZone.getTimeZone("Asia/Kuala_Lumpur"));
+        assertEquals(80_450, s.lastServiceKm);
+        assertEquals(90_450, s.nextServiceKm);
+        assertEquals("", s.sentLevels);
+    }
 }

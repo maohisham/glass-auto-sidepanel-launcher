@@ -26,6 +26,8 @@ public class SettingsActivity extends Activity {
     private LinearLayout rail, body;
     private ScrollView scroll;
     private String pickingFor = "";
+    MileageDraft mileageDraft;      // typed but not saved yet: kept across page rebuilds
+    boolean mileageSaved;           // show "Saved." once after a save
     private int pendingScroll = -1;   // the scroll position to go back to after a rebuild
     private String pendingCar = "";        // a picture waiting for the photo permission, read again once it is allowed
     private android.net.Uri pendingPicture;
