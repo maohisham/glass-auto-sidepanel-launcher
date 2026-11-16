@@ -242,6 +242,125 @@ Add this to the `glass_panel_dates` list above, or to your own automations:
           message: "Myvi is nearly home."
 ```
 
+### Dashboard cards with Bubble Card (optional)
+
+For a phone: a button per car (status, speed while driving, this week's fuel, service km left, road tax days; amber when
+due soon, red when overdue), and a pop-up per car with a map of today's route, the last drive, service and road tax,
+and a graph of drive scores. Needs [Bubble Card](https://github.com/Clooos/Bubble-Card) from HACS; the rest is built in.
+Check the entity names in **Developer tools → States** first.
+
+**The buttons** (put them in any vertical stack, or inside another Bubble pop-up's `cards:`):
+
+```yaml
+cards:
+  - type: custom:bubble-card
+    card_type: separator
+    name: 🚙 Cars
+    icon: ''
+    grid_options:
+      columns: 12
+
+  # one button per car: copy it, changing myvi
+  - type: custom:bubble-card
+    card_type: button
+    button_type: state
+    entity: sensor.myvi_status
+    name: Myvi
+    icon: mdi:car-hatchback
+    show_state: true
+    tap_action:
+      action: navigate
+      navigation_path: '#myvi'
+    sub_button:
+      main:
+        - entity: sensor.myvi_speed
+          icon: mdi:speedometer
+          show_state: true
+          show_background: false
+          visibility:
+            - condition: state
+              entity: sensor.myvi_status
+              state: driving
+        - entity: sensor.myvi_fuel_cost_this_week
+          icon: mdi:gas-station
+          show_state: true
+        - entity: sensor.myvi_service
+          icon: mdi:wrench
+          show_state: true
+        - entity: sensor.myvi_road_tax
+          icon: mdi:file-certificate
+          show_state: true
+      bottom: []
+    styles: |
+      .bubble-icon { color: ${ state === 'driving' ? '#7fe0b8' : state === 'on' ? '#ffcf6b' : '' } !important; }
+      .bubble-sub-button-3 { background-color: ${ (s => s < 0 ? 'rgba(255,90,90,.35)' : s <= 500 ? 'rgba(255,190,60,.35)' : '')(parseFloat(hass.states['sensor.myvi_service']?.state)) } !important; }
+      .bubble-sub-button-4 { background-color: ${ (s => s < 0 ? 'rgba(255,90,90,.35)' : s <= 30 ? 'rgba(255,190,60,.35)' : '')(parseFloat(hass.states['sensor.myvi_road_tax']?.state)) } !important; }
+    grid_options:
+      columns: 12
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+```
+
+**The pop-up** (its own card in the same view; copy it for each car, changing `myvi`):
+
+```yaml
+- type: custom:bubble-card
+  card_type: pop-up
+  hash: '#myvi'
+  name: Myvi
+  icon: mdi:car-hatchback
+  entity: sensor.myvi_status
+  show_header: true
+  button_type: state
+  cards:
+    - type: map
+      entities:
+        - entity: device_tracker.myvi
+      hours_to_show: 24
+      default_zoom: 14
+      aspect_ratio: '16:10'
+    - type: custom:bubble-card
+      card_type: separator
+      name: Last drive
+      icon: mdi:steering
+    - type: markdown
+      content: |
+        {% set d = 'sensor.myvi_last_drive' %}
+        {% set mins = state_attr(d, 'minutes') | int(0) %}
+        **{{ states(d) }}** points · {{ state_attr(d, 'km') }} km ·
+        {{ (mins // 60 ~ 'h ') if mins >= 60 else '' }}{{ mins % 60 }} min ·
+        RM {{ state_attr(d, 'cost_rm') or '—' }}
+
+        <small>{{ as_timestamp(state_attr(d, 'ended')) | timestamp_custom('%a %-d %b, %-I:%M %p') if state_attr(d, 'ended') else '' }}</small>
+    - type: custom:bubble-card
+      card_type: separator
+      name: Service and road tax
+      icon: mdi:wrench
+    - type: markdown
+      content: |
+        {% set s = 'sensor.myvi_service' %}
+        {% set r = 'sensor.myvi_road_tax' %}
+        | | |
+        |:--|--:|
+        | Odometer | ≈ {{ states('sensor.myvi_odometer') | int(0) }} km |
+        | Next service | {{ states(s) }} km left |
+        | At | {{ state_attr(s, 'next_km') }} km or {{ state_attr(s, 'next_date') }} |
+        | Estimated due | {{ state_attr(s, 'due_estimate') or '—' }} |
+        | Last service | {{ state_attr(s, 'last_date') or '—' }} · {{ state_attr(s, 'last_km') or '—' }} km |
+        | Road tax and insurance | {{ state_attr(r, 'renew_date') or '—' }} · {{ states(r) }} days |
+    - type: history-graph
+      title: Drive scores, 4 weeks
+      hours_to_show: 672
+      entities:
+        - entity: sensor.myvi_last_drive
+          name: Score
+```
+
+**History:** the map's trail and the scores graph read the recorder's history. If your `recorder:` has an `include:`
+list, add `device_tracker.myvi` and `sensor.*_last_drive`. The recorder keeps 10 days by default
+(`purge_keep_days`), so the 4-week graph shows at most that much unless you keep more.
+
 ## What the car sends
 
 Every message carries:
