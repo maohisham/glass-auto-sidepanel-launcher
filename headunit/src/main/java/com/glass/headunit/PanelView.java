@@ -251,6 +251,7 @@ final class PanelView extends LinearLayout {
         tripLine.setVisibility(tripArrive != null || tripMasjid ? VISIBLE : GONE);
         if (tripBreak != null) Changed.set(breakRow, tripBreak);
         breakRow.setVisibility(tripBreak == null ? GONE : VISIBLE);
+        if (stripBox != null) updateStrip();
     }
 
     private int builtIcons;
@@ -449,6 +450,7 @@ final class PanelView extends LinearLayout {
         breakRow.setClickable(true);
         breakRow.setContentDescription("Find an R&R nearby in the map app");
         breakRow.setOnClickListener(v -> {
+            breakRow.setVisibility(GONE);   // at once, so a second tap can't search again
             if (onSearch != null && !tripNavigating) onSearch.accept("R&R");
             if (onBreakDismissed != null) onBreakDismissed.run();
         });
@@ -701,7 +703,10 @@ final class PanelView extends LinearLayout {
     private void updateStrip() {
         boolean idle = now.pkg == null;
         boolean haveRight = prayer != null || weather != null;
-        boolean showRight = !idle && haveRight;
+        // nothing playing: the prayer table below has the times, so the strip hides, unless the trip helper has
+        // something to show (it lives in the strip)
+        boolean trip = tripArrive != null || tripMasjid || tripBreak != null;
+        boolean showRight = (!idle || trip) && haveRight;
         if (clockOn) {
             stripBox.setVisibility(VISIBLE);
             rightCol.setVisibility(showRight ? VISIBLE : GONE);

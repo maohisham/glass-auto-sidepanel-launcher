@@ -2,11 +2,11 @@ package com.glass.headunit;
 
 /**
  * The arrival time from Google Maps' navigation notification, kept while that notification is up and still being
- * updated (Maps updates it as the drive goes on; 3 minutes without an update and it no longer counts).
+ * updated (Maps updates it as the drive goes on; 10 minutes without an update and it no longer counts).
  */
 final class NavState {
 
-    static final long STALE_MS = 3 * 60_000L;
+    static final long STALE_MS = 10 * 60_000L;   // Maps may not repost in a jam; the end of navigation removes it anyway
     static final NavState MAPS = new NavState();
 
     private String key;

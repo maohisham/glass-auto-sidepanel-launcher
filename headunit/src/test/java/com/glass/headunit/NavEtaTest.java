@@ -17,4 +17,8 @@ public class NavEtaTest {
     @Test public void justBehindTheClockIsToday() { assertEquals(at(10, 59), NavEta.eta("x | 1 min · 0.3 km · 10:59 AM ETA", at(11, 0), KL)); }
     @Test public void twentyFourHourForm() { assertEquals(at(13, 5), NavEta.eta("x | 30 min · 25 km · 13:05 ETA", at(12, 35), KL)); }
     @Test public void noEta() { assertEquals(-1, NavEta.eta("Navigation is paused", at(10, 0), KL)); assertEquals(-1, NavEta.eta(null, at(10, 0), KL)); }
+    @Test public void narrowNoBreakSpace() { assertEquals(at(11, 1), NavEta.eta("12 min · 5.1 km · 11:01\u202fAM\u00a0ETA", at(10, 49), KL)); }
+    @Test public void dottedAmPm() { assertEquals(at(16, 40), NavEta.eta("1 hr · 98 km · 4:40 p.m. ETA", at(15, 35), KL)); }
+    // just after midnight, an arrival a few minutes ago (before midnight) is yesterday's, not tonight's
+    @Test public void justBehindAcrossMidnight() { assertEquals(at(23, 58), NavEta.eta("x | 1 min · 0.2 km · 11:58 PM ETA", at(24, 5), KL)); }
 }

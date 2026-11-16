@@ -17,7 +17,7 @@ final class TripHelper {
 
     /**
      * What the prayer line adds: the Find masjid button (only without navigation: Google Maps ignores a search sent to it
-     * while it navigates), or, while navigating, "Asar before you arrive (4:40 PM)" when the prayer starts before arrival.
+     * while it navigates), or, while navigating, "Asar starts before you arrive at 4:40 PM" when the prayer starts before arrival.
      */
     static final class Line {
         final boolean button;
@@ -35,7 +35,7 @@ final class TripHelper {
         boolean started = minsSinceCurrent >= 0 && minsSinceCurrent <= STARTED;
         if (etaMs > 0) {
             boolean before = nextMs > now && nextMs < etaMs;
-            return new Line(false, before ? nextName + " before you arrive (" + clock(etaMs, tz) + ")" : null);
+            return new Line(false, before ? nextName + " starts before you arrive at " + clock(etaMs, tz) : null);
         }
         boolean soon = nextMs >= now && nextMs - now <= SOON;
         return new Line(started || soon, null);

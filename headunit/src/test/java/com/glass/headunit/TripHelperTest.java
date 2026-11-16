@@ -19,7 +19,7 @@ public class TripHelperTest {
     @Test public void prayerBeforeArrival() {
         TripHelper.Line l = TripHelper.masjid(true, "Asar", at(16, 23), 200, at(16, 40), at(15, 30), KL);
         assertFalse(l.button);   // Maps ignores searches while navigating: say it, no button
-        assertEquals("Asar before you arrive (4:40 PM)", l.arrive);
+        assertEquals("Asar starts before you arrive at 4:40 PM", l.arrive);
     }
     @Test public void arrivingBeforeThePrayer() {
         TripHelper.Line l = TripHelper.masjid(true, "Asar", at(16, 23), 200, at(16, 0), at(15, 30), KL);
