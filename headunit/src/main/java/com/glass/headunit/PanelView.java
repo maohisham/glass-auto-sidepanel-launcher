@@ -223,6 +223,35 @@ final class PanelView extends LinearLayout {
         return lp;
     }
 
+    private LinearLayout tripLine;
+    private TextView arriveText, masjidChip, breakRow;
+    private String tripArrive, tripBreak;
+    private boolean tripMasjid;
+    private java.util.function.Consumer<String> onSearch;
+    private Runnable onBreakDismissed;
+
+    /** The trip helper's map searches ("masjid", "R&R") and the break row being closed by a tap. */
+    void setOnSearch(java.util.function.Consumer<String> search, Runnable breakDismissed) { onSearch = search; onBreakDismissed = breakDismissed; }
+
+    /** What the trip helper shows: "arrive …" and Find masjid under the prayer line, and the break row; nulls hide them. */
+    void setTrip(String arrive, boolean masjid, String breakLine) {
+        if (java.util.Objects.equals(arrive, tripArrive) && masjid == tripMasjid && java.util.Objects.equals(breakLine, tripBreak)) return;
+        tripArrive = arrive;
+        tripMasjid = masjid;
+        tripBreak = breakLine;
+        bindTrip();
+    }
+
+    private void bindTrip() {
+        if (tripLine == null) return;
+        Changed.set(arriveText, tripArrive == null ? "" : tripArrive);
+        arriveText.setVisibility(tripArrive == null ? GONE : VISIBLE);
+        masjidChip.setVisibility(tripMasjid ? VISIBLE : GONE);
+        tripLine.setVisibility(tripArrive != null || tripMasjid ? VISIBLE : GONE);
+        if (tripBreak != null) Changed.set(breakRow, tripBreak);
+        breakRow.setVisibility(tripBreak == null ? GONE : VISIBLE);
+    }
+
     private int builtIcons;
     private boolean scoreOwnRow;
     private int[] builtFit;
@@ -342,6 +371,25 @@ final class PanelView extends LinearLayout {
         pl.leftMargin = dp(8);
         prayerLine.addView(prayerText, pl);
         prayerBox = tapArea("Open the prayer times", prayerLine, () -> { if (onPrayer != null) onPrayer.run(); });
+        // the trip helper, under the prayer line while driving: when you arrive, and a button to find a masjid
+        tripLine = new LinearLayout(getContext());
+        tripLine.setOrientation(HORIZONTAL);
+        tripLine.setGravity(Gravity.CENTER_VERTICAL | (mode == PanelMode.COMPACT || clockOn ? Gravity.START : Gravity.END));
+        arriveText = text(15, false, dim);
+        tripLine.addView(arriveText);
+        masjidChip = text(15, true, accent);
+        masjidChip.setText("🕌 Find masjid");
+        masjidChip.setPadding(dp(12), dp(6), dp(12), dp(6));
+        masjidChip.setBackground(Glass.button(getContext(), dark, false, false, 16));
+        masjidChip.setClickable(true);
+        masjidChip.setContentDescription("Find a masjid nearby in the map app");
+        masjidChip.setOnClickListener(v -> { if (onSearch != null) onSearch.accept("masjid"); });
+        LayoutParams mc = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        mc.leftMargin = dp(10);
+        tripLine.addView(masjidChip, mc);
+        LayoutParams tl = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        tl.topMargin = dp(6);
+        prayerBox.addView(tripLine, tl);
         clockText = null;
         ampmText = null;
         dateText = null;
@@ -390,6 +438,29 @@ final class PanelView extends LinearLayout {
             stripBox.addView(prayerBox, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
         }
         headerBlock.addView(stripBox);
+        // a long drive: a break suggestion, tap to search for an R&R. On a wide strip it sits under the weather, as a
+        // chip like Find masjid, so the panel doesn't grow; otherwise it is a slim row of its own under the strip
+        boolean inStrip = !clockOn && mode != PanelMode.COMPACT;
+        breakRow = text(inStrip ? 15 : 16, true, accent);
+        if (inStrip) breakRow.setPadding(dp(12), dp(6), dp(12), dp(6));
+        else breakRow.setPadding(dp(14), dp(10), dp(14), dp(10));
+        breakRow.setBackground(Glass.button(getContext(), dark, false, false, inStrip ? 16 : 14));
+        breakRow.setClickable(true);
+        breakRow.setContentDescription("Find an R&R nearby in the map app");
+        breakRow.setOnClickListener(v -> {
+            if (onSearch != null) onSearch.accept("R&R");
+            if (onBreakDismissed != null) onBreakDismissed.run();
+        });
+        if (inStrip) {
+            LayoutParams br = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+            br.topMargin = dp(6);
+            weatherBox.addView(breakRow, br);
+        } else {
+            LayoutParams br = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+            br.topMargin = dp(8);
+            headerBlock.addView(breakRow, br);
+        }
+        bindTrip();
 
         banners = new LinearLayout(getContext());
         bannersShown = null;   // a new, empty notice area: fill it on the next bind

@@ -161,6 +161,12 @@ public class DriveRecorder extends Service {
         if (session.driving()) DriveLog.save(this, DriveTrip.trip());
     }
 
+    /** When the drive under way began, or -1 when not driving (or not recording). */
+    static long drivingSince() {
+        DriveRecorder r = instance;
+        return r != null && r.session != null && r.session.driving() ? r.session.beganAt() : -1;
+    }
+
     static void onSleep(Context c) {
         DriveRecorder r = instance;
         if (r != null) { r.session.onSleep(System.currentTimeMillis()); r.save(); }
