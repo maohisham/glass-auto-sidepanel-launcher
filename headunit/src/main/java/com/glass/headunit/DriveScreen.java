@@ -131,7 +131,7 @@ final class DriveScreen extends LinearLayout {
         addCarCard(ctx);
         if (card != null && live != null) card.setEstimate(live.estLPer100);
         carStatus(ctx);
-        out.addView(priceCard(), gap(out.getChildCount() == 0 ? 0 : 12));
+        if (!wide) out.addView(priceCard(false), gap(out.getChildCount() == 0 ? 0 : 12));   // wide: under the cost line
 
         out = why;
         why.addView(text(ScoreLayout.why(scores[period]), 16, true, PanelStyle.fg(dark)));
@@ -209,16 +209,19 @@ final class DriveScreen extends LinearLayout {
         chipRow.setVisibility(wide ? GONE : VISIBLE);
     }
 
-    /** This week's RON95 prices in big type: BUDI95 and unsubsidised side by side, readable at a glance. */
-    private android.view.View priceCard() {
+    /** This week's RON95 prices in big type: BUDI95 and unsubsidised side by side, readable at a glance. Flat inside
+     *  the score card on the wide page (under the cost line), on its own card otherwise. */
+    private android.view.View priceCard(boolean flat) {
         Settings st = Settings.of(getContext());
         double[] price = st.fuelPrices();
         int fg = PanelStyle.fg(dark), dim = PanelStyle.dim(dark), accent = PanelStyle.accent(dark);
         LinearLayout card = new LinearLayout(getContext());
         card.setOrientation(VERTICAL);
         int pad = Glass.dp(getContext(), 16);
-        card.setPadding(pad, Glass.dp(getContext(), 12), pad, Glass.dp(getContext(), 14));
-        card.setBackground(Glass.button(getContext(), dark, false, false, 16));
+        if (!flat) {
+            card.setPadding(pad, Glass.dp(getContext(), 12), pad, Glass.dp(getContext(), 14));
+            card.setBackground(Glass.button(getContext(), dark, false, false, 16));
+        }
 
         LinearLayout head = new LinearLayout(getContext());
         head.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -255,6 +258,7 @@ final class DriveScreen extends LinearLayout {
         String line = FuelPrice.costLine(litres, price[0], price[1]);
         out.addView(text(line != null ? line : "Choose your car in Settings → Car to see fuel and cost.", 15, line != null,
                 line != null ? PanelStyle.fg(dark) : PanelStyle.dim(dark)), gap(10));
+        if (wide) out.addView(priceCard(true), gap(16));
     }
 
     // ---- the running trip ----
