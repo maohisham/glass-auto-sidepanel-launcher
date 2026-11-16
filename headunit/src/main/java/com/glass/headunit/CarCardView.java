@@ -100,10 +100,19 @@ final class CarCardView extends FrameLayout {
         invalidate();
     }
 
+    private int maxHeightDp = 210;
+
+    /** The tallest the card may be; the picture is cropped to fit. */
+    void setMaxHeightDp(int dp) {
+        if (dp == maxHeightDp) return;
+        maxHeightDp = dp;
+        requestLayout();
+    }
+
     @Override
     protected void onMeasure(int w, int h) {
         int width = MeasureSpec.getSize(w);
-        int height = Math.min(Math.round(width / CardCrop.ASPECT), Glass.dp(getContext(), 210));
+        int height = Math.min(Math.round(width / CardCrop.ASPECT), Glass.dp(getContext(), maxHeightDp));
         super.onMeasure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY));
     }
 }

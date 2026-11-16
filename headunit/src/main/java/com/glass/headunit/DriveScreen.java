@@ -16,9 +16,10 @@ import java.util.TimeZone;
 import java.util.function.Supplier;
 
 /**
- * The driving score in detail, opened by tapping the score chip. A row of score rings picks the period (this trip,
- * the last drive, this week, this month, the year so far); below it are the numbers, a chart of the scores over that
- * period, the parts of the score, and a few insights from all the driving kept on the unit.
+ * The driving score in detail, opened by tapping the score chip. Chips at the top pick the period (this trip, the last
+ * drive, this week, this month, the year so far). When there is room (full screen) the page is three columns: the car
+ * and the fuel price, the score with its numbers and chart, and why the score is what it is with the insights. In a
+ * narrow panel the same parts stack, the score first.
  */
 final class DriveScreen extends LinearLayout {
 
@@ -28,7 +29,9 @@ final class DriveScreen extends LinearLayout {
     private final boolean dark;
     private final int textSize;
     private final PanelMode mode;
-    private final LinearLayout body;
+    private final LinearLayout page, chips, chipRow, head;
+    private LinearLayout out;   // where the section being built goes
+    private boolean wide;
     private final Supplier<List<DriveStats.Drive>> drives;
     private CarCardView card;
     private String cardCar = "";
@@ -46,7 +49,7 @@ final class DriveScreen extends LinearLayout {
         int pad = Glass.dp(ctx, mode == PanelMode.COMPACT ? 14 : 20);
         setPadding(pad, pad, pad, pad);
 
-        LinearLayout head = new LinearLayout(ctx);
+        head = new LinearLayout(ctx);
         head.setOrientation(HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
         head.addView(new IconView(ctx, Icon.BACK, "Back", dark, 44, IconView.Style.NORMAL, onClose));
@@ -56,13 +59,27 @@ final class DriveScreen extends LinearLayout {
         head.addView(title, tp);
         addView(head);
 
-        body = new LinearLayout(ctx);
-        body.setOrientation(VERTICAL);
+        chips = new LinearLayout(ctx);
+        chips.setOrientation(HORIZONTAL);
+        chips.setGravity(Gravity.CENTER_VERTICAL);
+        chipRow = new LinearLayout(ctx);   // holds the chips under the title when narrow
+        addView(chipRow, gap(10));
+
+        page = new LinearLayout(ctx);
         ScrollView sv = new ScrollView(ctx);
         sv.setVerticalScrollBarEnabled(false);
-        sv.addView(body);
-        addView(sv, new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f));
+        sv.addView(page);
+        LayoutParams sp = new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f);
+        sp.topMargin = Glass.dp(ctx, 12);
+        addView(sv, sp);
         refresh();
+    }
+
+    @Override
+    protected void onSizeChanged(int w, int h, int ow, int oh) {
+        super.onSizeChanged(w, h, ow, oh);
+        boolean now = ScoreLayout.wide(Math.round(w / getResources().getDisplayMetrics().density));
+        if (now != wide) { wide = now; post(this::refresh); }
     }
 
     private TextView text(String s, float baseSp, boolean bold, int color) {
@@ -103,21 +120,89 @@ final class DriveScreen extends LinearLayout {
         sum[YEAR] = DriveStats.summarize(DriveStats.between(all, DriveStats.startOfYear(now, tz), Long.MAX_VALUE));
         if (period < 0) period = live != null ? TRIP : last != null ? LAST : WEEK;
 
-        body.removeAllViews();
+        int[] scores = new int[5];
+        for (int p = TRIP; p <= YEAR; p++) scores[p] = p == TRIP ? (live == null ? -1 : live.score) : sum[p].score;
+        buildChips(scores);
+
+        LinearLayout car = column(), main = column(), why = column(), more = column();
+        out = car;
         addCarCard(ctx);
         if (card != null && live != null) card.setEstimate(live.estLPer100);
         carStatus(ctx);
-        body.addView(periodRow(live, sum), gap(12));
-        body.addView(priceCard(), gap(12));
+        out.addView(priceCard(), gap(out.getChildCount() == 0 ? 0 : 12));
 
-        if (period == TRIP) tripDetail(live, trip);
-        else periodDetail(period, sum[period], last, all, now, tz);
+        out = why;
+        why.addView(text(ScoreLayout.why(scores[period]), 16, true, PanelStyle.fg(dark)));
+        out = main;
+        if (period == TRIP) tripDetail(live, trip, why);
+        else periodDetail(period, sum[period], last, all, now, tz, why);
+        if (why.getChildCount() == 1) why.removeAllViews();   // no score, nothing to break down
 
+        out = wide ? why : more;
         List<String> insights = DriveStats.insights(all, now, tz);
         if (!insights.isEmpty()) {
-            body.addView(text("Insights", 16, true, PanelStyle.fg(dark)), gap(20));
-            for (String s : insights) body.addView(insight(s), gap(8));
+            out.addView(text("Insights", 16, true, PanelStyle.fg(dark)), gap(out.getChildCount() == 0 ? 0 : 20));
+            for (String s : insights) out.addView(insight(s), gap(8));
         }
+
+        page.removeAllViews();
+        if (wide) {
+            page.setOrientation(HORIZONTAL);
+            addColumn(car, 3, false);
+            addColumn(main, 4, true);
+            addColumn(why, 3, true);
+        } else {
+            page.setOrientation(VERTICAL);
+            for (LinearLayout c : new LinearLayout[]{main, why, car, more}) {
+                if (c.getChildCount() > 0) page.addView(c, gap(page.getChildCount() == 0 ? 0 : 20));
+            }
+        }
+    }
+
+    private LinearLayout column() {
+        LinearLayout c = new LinearLayout(getContext());
+        c.setOrientation(VERTICAL);
+        return c;
+    }
+
+    /** A column of the wide page; the score and the reasons sit on a card, the car column carries its own cards. */
+    private void addColumn(LinearLayout c, float weight, boolean onCard) {
+        if (onCard && c.getChildCount() > 0) {
+            int pad = Glass.dp(getContext(), 16);
+            c.setPadding(pad, pad, pad, pad);
+            c.setBackground(Glass.button(getContext(), dark, false, false, 16));
+        }
+        LayoutParams lp = new LayoutParams(0, LayoutParams.WRAP_CONTENT, weight);
+        if (page.getChildCount() > 0) lp.leftMargin = Glass.dp(getContext(), 14);
+        page.addView(c, lp);
+    }
+
+    /** The period chips with their scores: in the title row when wide, on their own row under it when narrow. */
+    private void buildChips(int[] scores) {
+        chips.removeAllViews();
+        for (int p = TRIP; p <= YEAR; p++) {
+            final int which = p;
+            boolean on = p == period;
+            TextView c = text(ScoreLayout.chip(NAMES[p], scores[p]), 14, true, on ? PanelStyle.fg(dark) : PanelStyle.dim(dark));
+            int h = Glass.dp(getContext(), wide ? 18 : 12), v = Glass.dp(getContext(), 8);
+            c.setPadding(h, v, h, v);
+            c.setGravity(Gravity.CENTER);
+            c.setBackground(on ? Glass.button(getContext(), dark, false, true, 20) : Glass.pressOverlay(getContext(), dark, 20));
+            c.setClickable(true);
+            c.setContentDescription(NAMES[p] + (scores[p] < 0 ? ", no drives" : ", score " + scores[p]));
+            c.setOnClickListener(x -> { period = which; refresh(); });
+            LayoutParams lp = wide ? new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT) : new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
+            if (chips.getChildCount() > 0) lp.leftMargin = Glass.dp(getContext(), 6);
+            chips.addView(c, lp);
+        }
+        android.view.ViewGroup want = wide ? head : chipRow;
+        if (chips.getParent() != want) {
+            if (chips.getParent() != null) ((android.view.ViewGroup) chips.getParent()).removeView(chips);
+            LayoutParams lp = wide ? new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT) : new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+            if (wide) lp.leftMargin = Glass.dp(getContext(), 32);
+            want.addView(chips, lp);
+        }
+        chipRow.setVisibility(wide ? GONE : VISIBLE);
     }
 
     /** This week's RON95 prices in big type: BUDI95 and unsubsidised side by side, readable at a glance. */
@@ -164,60 +249,22 @@ final class DriveScreen extends LinearLayout {
     private void fuelCost(float litres) {
         double[] price = Settings.of(getContext()).fuelPrices();
         String line = FuelPrice.costLine(litres, price[0], price[1]);
-        body.addView(text(line != null ? line : "Choose your car in Settings → Car to see fuel and cost.", 15, line != null,
+        out.addView(text(line != null ? line : "Choose your car in Settings → Car to see fuel and cost.", 15, line != null,
                 line != null ? PanelStyle.fg(dark) : PanelStyle.dim(dark)), gap(10));
-    }
-
-    // ---- the period rings ----
-
-    private LinearLayout periodRow(EcoScore.Stats live, DriveStats.Summary[] sum) {
-        LinearLayout row = new LinearLayout(getContext());
-        row.setOrientation(HORIZONTAL);
-        int ring = mode == PanelMode.COMPACT ? 40 : 52;
-        for (int p = TRIP; p <= YEAR; p++) {
-            final int which = p;
-            int score = p == TRIP ? (live == null ? -1 : live.score) : sum[p].score;
-            float km = p == TRIP ? (live == null ? 0 : live.distanceKm) : sum[p].km;
-            LinearLayout cell = new LinearLayout(getContext());
-            cell.setOrientation(VERTICAL);
-            cell.setGravity(Gravity.CENTER_HORIZONTAL);
-            int pad = Glass.dp(getContext(), 6);
-            cell.setPadding(0, pad, 0, pad);
-            cell.setBackground(p == period ? Glass.button(getContext(), dark, false, true, 14) : Glass.pressOverlay(getContext(), dark, 14));
-            ScoreRingView rv = new ScoreRingView(getContext(), dark, ring);
-            rv.setScore(score);
-            cell.addView(rv);
-            cell.addView(text(NAMES[p], 12, true, p == period ? PanelStyle.fg(dark) : PanelStyle.dim(dark)), center(4));
-            cell.addView(text(score < 0 ? " " : km(km), 11, false, PanelStyle.dim(dark)), center(0));
-            cell.setClickable(true);
-            cell.setContentDescription(NAMES[p] + (score < 0 ? ", no drives" : ", score " + score));
-            cell.setOnClickListener(v -> { period = which; refresh(); });
-            LayoutParams lp = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
-            lp.leftMargin = lp.rightMargin = Glass.dp(getContext(), 2);
-            row.addView(cell, lp);
-        }
-        return row;
-    }
-
-    private LayoutParams center(int topDp) {
-        LayoutParams lp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
-        lp.topMargin = Glass.dp(getContext(), topDp);
-        lp.gravity = Gravity.CENTER_HORIZONTAL;
-        return lp;
     }
 
     // ---- the running trip ----
 
-    private void tripDetail(EcoScore.Stats s, EcoScore trip) {
+    private void tripDetail(EcoScore.Stats s, EcoScore trip, LinearLayout why) {
         int fg = PanelStyle.fg(dark), dim = PanelStyle.dim(dark);
         if (s == null) {
-            body.addView(text("Drive to start scoring", 17, true, fg), gap(16));
-            body.addView(text("A trip starts when the car passes 5 km/h and the GPS has a fix. The score updates every few seconds, "
+            out.addView(text("Drive to start scoring", 17, true, fg));
+            out.addView(text("A trip starts when the car passes 5 km/h and the GPS has a fix. The score updates every few seconds, "
                     + "and every drive is kept for the weekly, monthly and yearly scores.", 14, false, dim), gap(8));
             return;
         }
-        body.addView(headline(s.score, s.grade + " driving efficiency"), gap(14));
-        body.addView(tiles(new String[][]{
+        out.addView(headline(s.score, "This trip, so far"));
+        out.addView(tiles(wide ? 3 : 2, new String[][]{
                 {km(s.distanceKm), "Distance"},
                 {EcoScore.duration(s.durationSec), "Duration"},
                 {String.format(Locale.US, "%.0f km/h", s.avgSpeedKmh), "Average"},
@@ -226,13 +273,13 @@ final class DriveScreen extends LinearLayout {
                 {s.hasCar ? (s.estLPer100 > 0 ? String.format(Locale.US, "%.1f L/100", s.estLPer100) : "--") : "", s.hasCar ? "Fuel use (est.)" : ""},
         }), gap(12));
         fuelCost(s.hasCar ? s.estFuelL : 0f);
-        breakdown(s.zoneScore, s.smoothScore, s.effScore, s.idleScore, s.bonusScore, s.hasCar);
+        breakdown(why, s.zoneScore, s.smoothScore, s.effScore, s.idleScore, s.bonusScore, s.hasCar);
         String tip = EcoScore.tip(s);
         if (!tip.isEmpty()) {
-            body.addView(text("Tip", 16, true, fg), gap(18));
-            body.addView(text(tip, 14, false, dim), gap(4));
+            out.addView(text("Tip", 16, true, fg), gap(18));
+            out.addView(text(tip, 14, false, dim), gap(4));
         }
-        body.addView(Glass.textButton(getContext(), "End this trip", dark, () -> {
+        out.addView(Glass.textButton(getContext(), "End this trip", dark, () -> {
             DriveLog.save(getContext(), trip);
             trip.reset();
             period = LAST;
@@ -242,17 +289,17 @@ final class DriveScreen extends LinearLayout {
 
     // ---- a past period ----
 
-    private void periodDetail(int p, DriveStats.Summary s, DriveStats.Drive last, List<DriveStats.Drive> all, long now, TimeZone tz) {
+    private void periodDetail(int p, DriveStats.Summary s, DriveStats.Drive last, List<DriveStats.Drive> all, long now, TimeZone tz, LinearLayout why) {
         int dim = PanelStyle.dim(dark);
         if (s.trips == 0) {
-            body.addView(text(p == LAST ? "No drives yet" : "No drives " + (p == WEEK ? "this week" : p == MONTH ? "this month" : "this year") + " yet",
-                    17, true, PanelStyle.fg(dark)), gap(16));
-            body.addView(text("Drives of at least " + Math.round(DriveStats.MIN_KM * 1000) + " m are kept while the panel is open.", 14, false, dim), gap(8));
+            out.addView(text(p == LAST ? "No drives yet" : "No drives " + (p == WEEK ? "this week" : p == MONTH ? "this month" : "this year") + " yet",
+                    17, true, PanelStyle.fg(dark)));
+            out.addView(text("Drives of at least " + Math.round(DriveStats.MIN_KM * 1000) + " m are kept while the panel is open.", 14, false, dim), gap(8));
             return;
         }
         String sub = p == LAST ? when(last.start, last.end, tz) : s.trips + (s.trips == 1 ? " drive" : " drives") + ", best " + s.best;
-        body.addView(headline(s.score, EcoScore.grade(s.score) + " · " + sub), gap(14));
-        body.addView(tiles(new String[][]{
+        out.addView(headline(s.score, sub));
+        out.addView(tiles(wide ? 4 : 2, new String[][]{
                 {km(s.km), "Distance"},
                 {EcoScore.duration(s.sec), "Time driving"},
                 {p == LAST ? String.format(Locale.US, "%.0f km/h", s.avgKmh) : String.valueOf(s.trips), p == LAST ? "Average" : "Drives"},
@@ -277,11 +324,11 @@ final class DriveScreen extends LinearLayout {
                 chart.setData(DriveStats.monthlyScores(all, DriveStats.startOfYear(now, tz), tz),
                         new String[]{"J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"}, c.get(Calendar.MONTH));
             }
-            body.addView(text(p == WEEK ? "Score by day" : p == MONTH ? "Score by day" : "Score by month", 16, true, PanelStyle.fg(dark)), gap(18));
-            body.addView(chart, gap(8));
-            body.addView(text("Dashed line: Good (75)", 12, false, dim), gap(2));
+            out.addView(text(p == WEEK ? "Score by day" : p == MONTH ? "Score by day" : "Score by month", 16, true, PanelStyle.fg(dark)), gap(18));
+            out.addView(chart, gap(8));
+            out.addView(text("Dashed line: Good (75)", 12, false, dim), gap(2));
         }
-        breakdown(s.zone, s.smooth, s.eff, s.idle, s.bonus, s.fuelL > 0);
+        breakdown(why, s.zone, s.smooth, s.eff, s.idle, s.bonus, s.fuelL > 0);
     }
 
     private static int daysBetween(long from, long now, TimeZone tz) {
@@ -307,28 +354,28 @@ final class DriveScreen extends LinearLayout {
         LinearLayout r = new LinearLayout(getContext());
         r.setOrientation(HORIZONTAL);
         r.setGravity(Gravity.CENTER_VERTICAL);
-        ScoreRingView ring = new ScoreRingView(getContext(), dark, mode == PanelMode.COMPACT ? 72 : 92);
+        ScoreRingView ring = new ScoreRingView(getContext(), dark, wide ? 120 : mode == PanelMode.COMPACT ? 72 : 92);
         ring.setScore(score);
         r.addView(ring);
         LinearLayout col = new LinearLayout(getContext());
         col.setOrientation(VERTICAL);
-        col.addView(text(EcoScore.grade(score), 20, true, PanelStyle.scoreColor(score)));
-        col.addView(text(line, 13, false, PanelStyle.dim(dark)));
+        col.addView(text(EcoScore.grade(score), wide ? 26 : 20, true, PanelStyle.scoreColor(score)));
+        col.addView(text(line, wide ? 15 : 13, false, PanelStyle.dim(dark)));
         LayoutParams lp = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
         lp.leftMargin = Glass.dp(getContext(), 14);
         r.addView(col, lp);
         return r;
     }
 
-    /** Small cards of {value, label}, two to a row; an empty pair is skipped. */
-    private LinearLayout tiles(String[][] items) {
+    /** Small cards of {value, label}, perRow to a row; an empty pair is skipped. */
+    private LinearLayout tiles(int perRow, String[][] items) {
         LinearLayout grid = new LinearLayout(getContext());
         grid.setOrientation(VERTICAL);
         LinearLayout row = null;
         int inRow = 0;
         for (String[] it : items) {
             if (it[0].isEmpty()) continue;
-            if (row == null || inRow == 2) {
+            if (row == null || inRow == perRow) {
                 row = new LinearLayout(getContext());
                 row.setOrientation(HORIZONTAL);
                 grid.addView(row, gap(grid.getChildCount() == 0 ? 0 : 8));
@@ -345,25 +392,25 @@ final class DriveScreen extends LinearLayout {
             t.addView(text(it[0], 17, true, PanelStyle.fg(dark)));
             t.addView(text(it[1], 12, false, PanelStyle.dim(dark)));
             LayoutParams lp = new LayoutParams(0, LayoutParams.MATCH_PARENT, 1f);
-            if (inRow == 1) lp.leftMargin = Glass.dp(getContext(), 8);
+            if (inRow > 0) lp.leftMargin = Glass.dp(getContext(), 8);
             row.addView(t, lp);
             inRow++;
         }
-        if (row != null && inRow == 1) {   // keep a lone last tile half wide
+        while (row != null && inRow > 0 && inRow < perRow) {   // keep a short last row's tiles the same width
             LayoutParams lp = new LayoutParams(0, 1, 1f);
             lp.leftMargin = Glass.dp(getContext(), 8);
             row.addView(new android.view.View(getContext()), lp);
+            inRow++;
         }
         return grid;
     }
 
-    private void breakdown(float zone, float smooth, float eff, float idle, float bonus, boolean fuel) {
-        body.addView(text("Score breakdown", 16, true, PanelStyle.fg(dark)), gap(18));
-        body.addView(bar("Speed zone  35%", zone, 0xFF66DD88), gap(8));
-        body.addView(bar("Smoothness  25%", smooth, 0xFF66AAFF), gap(8));
-        body.addView(bar(fuel ? "Fuel use  20%" : "Average speed  20%", eff, 0xFFFFCC44), gap(8));
-        body.addView(bar("Idling  15%", idle, 0xFFFF9944), gap(8));
-        body.addView(bar("Speed cap  5%", bonus, 0xFFCC88FF), gap(8));
+    private void breakdown(LinearLayout why, float zone, float smooth, float eff, float idle, float bonus, boolean fuel) {
+        why.addView(bar("Speed zone  35%", zone, 0xFF66DD88), gap(8));
+        why.addView(bar("Smoothness  25%", smooth, 0xFF66AAFF), gap(8));
+        why.addView(bar(fuel ? "Fuel use  20%" : "Average speed  20%", eff, 0xFFFFCC44), gap(8));
+        why.addView(bar("Idling  15%", idle, 0xFFFF9944), gap(8));
+        why.addView(bar("Speed cap  5%", bonus, 0xFFCC88FF), gap(8));
     }
 
     private LinearLayout insight(String s) {
@@ -377,19 +424,31 @@ final class DriveScreen extends LinearLayout {
         return r;
     }
 
-    /** The odometer, service and road tax entered in Settings, as small cards with the most urgent line under them. */
+    /** The odometer, service and road tax entered in Settings, as a short list; due soon is amber, overdue red. */
     private void carStatus(Context ctx) {
-        Mileage.State m = Settings.of(ctx).mileageState();
-        if (!CarCards.anything(m)) return;
-        Mileage.Status st = CarStatus.status(ctx);
-        body.addView(text("Car", 16, true, PanelStyle.fg(dark)), gap(16));
-        body.addView(tiles(CarCards.tiles(m, st)), gap(8));
-        String line = Mileage.cardLine(st);
-        int level = CarCards.level(st);
-        if (line != null) body.addView(text(line, 14, true, level == 2 ? 0xFFFF6655 : 0xFFFFCC44), gap(8));
+        List<CarCards.Row> rows = CarCards.rows(Settings.of(ctx).mileageState(), CarStatus.status(ctx));
+        if (rows.isEmpty()) return;
+        LinearLayout list = column();
+        int pad = Glass.dp(ctx, 16);
+        list.setPadding(pad, Glass.dp(ctx, 10), pad, Glass.dp(ctx, 12));
+        list.setBackground(Glass.button(ctx, dark, false, false, 16));
+        for (CarCards.Row r : rows) {
+            int color = r.level == 2 ? 0xFFFF6655 : r.level == 1 ? 0xFFFFCC44 : PanelStyle.fg(dark);
+            LinearLayout line = new LinearLayout(ctx);
+            line.setOrientation(HORIZONTAL);
+            line.addView(text(r.label, 15, false, PanelStyle.dim(dark)), new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+            line.addView(text(r.value, 16, true, color));
+            list.addView(line, gap(list.getChildCount() == 0 ? 0 : 8));
+            if (r.sub != null) {
+                TextView sub = text(r.sub, 13, false, r.level > 0 ? color : PanelStyle.dim(dark));
+                sub.setGravity(Gravity.END);
+                list.addView(sub, gap(0));
+            }
+        }
+        out.addView(list, gap(out.getChildCount() == 0 ? 0 : 12));
     }
 
-    /** The car card at the top, when a car is chosen in Settings; the picture is read again only when the car changes. */
+    /** The car as a short banner, when a car is chosen in Settings; the picture is read again only when the car changes. */
     private void addCarCard(Context ctx) {
         Settings st = Settings.of(ctx);
         CarProfile p = CarProfile.byId(st.car());
@@ -399,7 +458,8 @@ final class DriveScreen extends LinearLayout {
             cardCar = p.id;
         }
         if (card.getParent() != null) ((android.view.ViewGroup) card.getParent()).removeView(card);
-        body.addView(card, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+        card.setMaxHeightDp(wide ? 120 : 110);
+        out.addView(card, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
     }
 
     private LinearLayout bar(String label, float score, int color) {

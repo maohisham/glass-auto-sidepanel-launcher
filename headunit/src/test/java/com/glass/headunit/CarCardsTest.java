@@ -24,37 +24,6 @@ public class CarCardsTest {
         assertTrue(CarCards.anything(s));
     }
 
-    @Test public void allCardsInOrder() {
-        String[][] t = CarCards.tiles(entered(), status());
-        assertArrayEquals(new String[]{"≈ 84,312 km", "Odometer"}, t[0]);
-        assertArrayEquals(new String[]{"94,312 km", "Next service"}, t[1]);
-        assertArrayEquals(new String[]{"10,000 km left", "≈ due 2 Apr 2027"}, t[2]);
-        assertArrayEquals(new String[]{"15 May 2027", "Next service date"}, t[3]);
-        assertArrayEquals(new String[]{"3 Mar 2026", "Last service · 74,312 km"}, t[4]);
-        assertArrayEquals(new String[]{"12 Jan 2027", "Road tax and insurance"}, t[5]);
-    }
-
-    @Test public void missingValuesAreEmpty() {
-        Mileage.Status st = new Mileage.Status();
-        String[][] t = CarCards.tiles(new Mileage.State(), st);
-        for (String[] it : t) assertEquals("", it[0]);
-    }
-
-    @Test public void overdueKmAndNoEstimate() {
-        Mileage.Status st = status(); st.kmLeft = -250; st.dueEstimate = null; st.lastServiceKm = -1;
-        String[][] t = CarCards.tiles(entered(), st);
-        assertArrayEquals(new String[]{"250 km over", "Service overdue"}, t[2]);
-        assertArrayEquals(new String[]{"3 Mar 2026", "Last service"}, t[4]);
-    }
-
-    @Test public void levels() {
-        assertEquals(0, CarCards.level(status()));
-        Mileage.Status st = status(); st.kmLeft = 400;
-        assertEquals(1, CarCards.level(st));
-        st.roadTaxDaysLeft = -1;
-        assertEquals(2, CarCards.level(st));
-    }
-
     private static String[] row(java.util.List<CarCards.Row> rows, String label) {
         for (CarCards.Row r : rows) if (r.label.equals(label)) return new String[]{r.value, r.sub, String.valueOf(r.level)};
         return null;

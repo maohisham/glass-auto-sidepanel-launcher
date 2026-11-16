@@ -16,25 +16,6 @@ final class CarCards {
         return s.enteredAt > 0 || s.lastServiceDate != null || s.lastServiceKm >= 0 || s.nextServiceKm >= 0 || s.nextServiceDate != null || s.roadTaxDate != null;
     }
 
-    /** Odometer, next service km, km left, next service date, last service, road tax; a value is "" when not entered. */
-    static String[][] tiles(Mileage.State s, Mileage.Status st) {
-        String left = "", leftLabel = "";
-        if (st.kmLeft != null) {
-            if (st.kmLeft < 0) { left = km(-st.kmLeft) + " over"; leftLabel = "Service overdue"; }
-            else { left = km(st.kmLeft) + " left"; leftLabel = st.dueEstimate != null ? "≈ due " + day(st.dueEstimate) : "Until the service"; }
-        }
-        String last = st.lastServiceDate != null ? day(st.lastServiceDate) : st.lastServiceKm >= 0 ? km(st.lastServiceKm) : "";
-        String lastLabel = st.lastServiceDate != null && st.lastServiceKm >= 0 ? "Last service · " + km(st.lastServiceKm) : "Last service";
-        return new String[][]{
-                {s.enteredAt > 0 ? "≈ " + km(st.odometerKm) : "", "Odometer"},
-                {st.nextServiceKm >= 0 ? km(st.nextServiceKm) : "", "Next service"},
-                {left, leftLabel},
-                {day(st.nextServiceDate), "Next service date"},
-                {last, lastLabel},
-                {day(st.roadTaxDate), "Road tax and insurance"},
-        };
-    }
-
     /** One line of the car list: a label, its value, an optional line under it, and 0 fine / 1 soon / 2 overdue. */
     static final class Row {
         final String label, value, sub;
@@ -74,12 +55,6 @@ final class CarCards {
         if (d == 0) return "today";
         if (d < 0) return -d + (d == -1 ? " day overdue" : " days overdue");
         return "in " + d + (d == 1 ? " day" : " days");
-    }
-
-    /** 0 nothing near, 1 something due soon, 2 something overdue. */
-    static int level(Mileage.Status st) {
-        if ((st.kmLeft != null && st.kmLeft < 0) || (st.daysLeft != null && st.daysLeft < 0) || (st.roadTaxDaysLeft != null && st.roadTaxDaysLeft < 0)) return 2;
-        return Mileage.cardLine(st) != null ? 1 : 0;
     }
 
     private static String km(int n) { return String.format(Locale.US, "%,d km", n); }
