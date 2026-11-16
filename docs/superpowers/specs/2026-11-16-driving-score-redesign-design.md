@@ -29,7 +29,7 @@ score ("Last 27"; "Trip --" with no trip). The selected chip is filled with the 
 adding the score keeps what the old rings showed at a glance — builder's call.) In the narrow panel the chips go on their
 own row under the title.
 
-**Wide (≥ 900 dp): three columns, one page scroll.**
+**Wide (≥ 1100 dp): three columns, one page scroll.**
 - Left, ≈ 30%: the car photo as a short banner (about 90 dp, name and spec over it), then the car list — Odometer,
   Next service (km left, with "19,232 km or 7 Jan 2027" under it), Road tax and insurance (date and days left) — then a
   divider and the fuel price: RON95 this week, BUDI95 and unsubsidised in big type, the date and the saving line. Rows
@@ -41,7 +41,7 @@ own row under the title.
   them.
 - The page scrolls as one; the columns only grow down, so the essentials sit on the first screen.
 
-**Narrow (< 900 dp): one column**, in order: score block, stats and cost, chart/tip/end trip, Why breakdown, car banner
+**Narrow (< 1100 dp): one column**, in order: score block, stats and cost, chart/tip/end trip, Why breakdown, car banner
 and list, fuel price, insights.
 
 ## Approaches

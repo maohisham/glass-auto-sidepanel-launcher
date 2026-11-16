@@ -39,7 +39,7 @@ final class CarCards {
         else if (st.lastServiceKm >= 0) out.add(new Row("Last service", km(st.lastServiceKm), null, 0));
         if (st.roadTaxDate != null) {
             Integer d = st.roadTaxDaysLeft;
-            out.add(new Row("Road tax", day(st.roadTaxDate), daysText(d), d == null ? 0 : d < 0 ? 2 : d <= Mileage.ROAD_TAX_SOON_DAYS ? 1 : 0));
+            out.add(new Row("Road tax and insurance", day(st.roadTaxDate), daysText(d), d == null ? 0 : d < 0 ? 2 : d <= Mileage.ROAD_TAX_SOON_DAYS ? 1 : 0));
         }
         return out;
     }

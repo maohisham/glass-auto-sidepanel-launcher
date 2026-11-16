@@ -35,7 +35,7 @@ public class CarCardsTest {
         assertArrayEquals(new String[]{"≈ 84,312 km", null, "0"}, row(rows, "Odometer"));
         assertArrayEquals(new String[]{"10,000 km left", "94,312 km or 15 May 2027 · ≈ due 2 Apr 2027", "0"}, row(rows, "Next service"));
         assertArrayEquals(new String[]{"3 Mar 2026", "74,312 km", "0"}, row(rows, "Last service"));
-        assertArrayEquals(new String[]{"12 Jan 2027", "in 57 days", "0"}, row(rows, "Road tax"));
+        assertArrayEquals(new String[]{"12 Jan 2027", "in 57 days", "0"}, row(rows, "Road tax and insurance"));
     }
 
     @Test public void noRowsWhenNothingEntered() { assertTrue(CarCards.rows(new Mileage.State(), new Mileage.Status()).isEmpty()); }
@@ -44,9 +44,9 @@ public class CarCardsTest {
         Mileage.Status st = status(); st.kmLeft = -250; st.roadTaxDaysLeft = 20;
         java.util.List<CarCards.Row> rows = CarCards.rows(entered(), st);
         assertArrayEquals(new String[]{"250 km over", "94,312 km or 15 May 2027", "2"}, row(rows, "Next service"));
-        assertArrayEquals(new String[]{"12 Jan 2027", "in 20 days", "1"}, row(rows, "Road tax"));
+        assertArrayEquals(new String[]{"12 Jan 2027", "in 20 days", "1"}, row(rows, "Road tax and insurance"));
         st.roadTaxDaysLeft = -3;
-        assertArrayEquals(new String[]{"12 Jan 2027", "3 days overdue", "2"}, row(CarCards.rows(entered(), st), "Road tax"));
+        assertArrayEquals(new String[]{"12 Jan 2027", "3 days overdue", "2"}, row(CarCards.rows(entered(), st), "Road tax and insurance"));
     }
 
     @Test public void serviceByDateOnly() {

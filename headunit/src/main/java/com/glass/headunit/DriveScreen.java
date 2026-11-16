@@ -32,6 +32,7 @@ final class DriveScreen extends LinearLayout {
     private final LinearLayout page, chips, chipRow, head;
     private LinearLayout out;   // where the section being built goes
     private boolean wide;
+    private ScrollView sv;
     private final Supplier<List<DriveStats.Drive>> drives;
     private CarCardView card;
     private String cardCar = "";
@@ -48,6 +49,7 @@ final class DriveScreen extends LinearLayout {
         setClickable(true); // swallow touches so the panel below is not pressed through it
         int pad = Glass.dp(ctx, mode == PanelMode.COMPACT ? 14 : 20);
         setPadding(pad, pad, pad, pad);
+        wide = ScoreLayout.wide(ctx.getResources().getConfiguration().screenWidthDp - 2 * (mode == PanelMode.COMPACT ? 14 : 20));
 
         head = new LinearLayout(ctx);
         head.setOrientation(HORIZONTAL);
@@ -66,7 +68,7 @@ final class DriveScreen extends LinearLayout {
         addView(chipRow, gap(10));
 
         page = new LinearLayout(ctx);
-        ScrollView sv = new ScrollView(ctx);
+        sv = new ScrollView(ctx);
         sv.setVerticalScrollBarEnabled(false);
         sv.addView(page);
         LayoutParams sp = new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f);
@@ -78,7 +80,7 @@ final class DriveScreen extends LinearLayout {
     @Override
     protected void onSizeChanged(int w, int h, int ow, int oh) {
         super.onSizeChanged(w, h, ow, oh);
-        boolean now = ScoreLayout.wide(Math.round(w / getResources().getDisplayMetrics().density));
+        boolean now = ScoreLayout.wide(Math.round((w - getPaddingLeft() - getPaddingRight()) / getResources().getDisplayMetrics().density));
         if (now != wide) { wide = now; post(this::refresh); }
     }
 
@@ -183,14 +185,16 @@ final class DriveScreen extends LinearLayout {
         for (int p = TRIP; p <= YEAR; p++) {
             final int which = p;
             boolean on = p == period;
-            TextView c = text(ScoreLayout.chip(NAMES[p], scores[p]), 14, true, on ? PanelStyle.fg(dark) : PanelStyle.dim(dark));
+            TextView c = text(wide ? ScoreLayout.chip(NAMES[p], scores[p]) : ScoreLayout.chipNarrow(NAMES[p], scores[p]), wide ? 14 : 13, true,
+                    on ? PanelStyle.fg(dark) : PanelStyle.dim(dark));
+            c.setMaxLines(wide ? 1 : 2);
             int h = Glass.dp(getContext(), wide ? 18 : 12), v = Glass.dp(getContext(), 8);
             c.setPadding(h, v, h, v);
             c.setGravity(Gravity.CENTER);
             c.setBackground(on ? Glass.button(getContext(), dark, false, true, 20) : Glass.pressOverlay(getContext(), dark, 20));
             c.setClickable(true);
             c.setContentDescription(NAMES[p] + (scores[p] < 0 ? ", no drives" : ", score " + scores[p]));
-            c.setOnClickListener(x -> { period = which; refresh(); });
+            c.setOnClickListener(x -> { period = which; refresh(); sv.scrollTo(0, 0); });
             LayoutParams lp = wide ? new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT) : new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
             if (chips.getChildCount() > 0) lp.leftMargin = Glass.dp(getContext(), 6);
             chips.addView(c, lp);
