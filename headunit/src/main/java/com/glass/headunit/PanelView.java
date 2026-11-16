@@ -118,7 +118,8 @@ final class PanelView extends LinearLayout {
 
     /** Rebuilds only when something that changes the views changed. */
     void setStyle(PanelMode m, int textSize, int lyricsSize, boolean dark) {
-        if (m == mode && textSize == this.textSize && lyricsSize == this.lyricsSize && dark == this.dark) return;
+        int widthDp = getResources().getConfiguration().screenWidthDp;   // the top row's fit depends on it
+        if (m == mode && textSize == this.textSize && lyricsSize == this.lyricsSize && dark == this.dark && widthDp == builtWidthDp) return;
         this.mode = m;
         this.textSize = textSize;
         this.lyricsSize = lyricsSize;
@@ -211,7 +212,11 @@ final class PanelView extends LinearLayout {
         return lp;
     }
 
+    private int builtWidthDp = -1;
+    private boolean scoreOwnRow;
+
     private void build() {
+        builtWidthDp = getResources().getConfiguration().screenWidthDp;
         removeAllViews();
         lineViews.clear();
         shownLyrics = null;
@@ -245,6 +250,17 @@ final class PanelView extends LinearLayout {
         final String[] aa = androidAutoApp();
         if (aa != null) topRow.addView(icon(Icon.CAR, "Android Auto", 44, IconView.Style.NORMAL, () -> openAndroidAuto(aa[0])), gapped(firstIcon ? 0 : 12));
         topRow.addView(new View(getContext()), new LayoutParams(0, 1, 1f));
+        int icons = topRow.getChildCount() - 1;
+        // a narrow split can't fit the speed and the Score chip beside all the shortcuts: they get a row of their own
+        LinearLayout scoreRow = topRow;
+        scoreOwnRow = scoreEnabled && TopRowFit.secondRow(getResources().getConfiguration().screenWidthDp, icons, mode == PanelMode.COMPACT ? 12 : 20);
+        if (scoreOwnRow) {
+            topRow.setPadding(0, 0, 0, dp(2));
+            scoreRow = new LinearLayout(getContext());
+            scoreRow.setOrientation(HORIZONTAL);
+            scoreRow.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+            scoreRow.setPadding(0, 0, 0, dp(10));
+        }
         scoreChip = null;
         speedChip = null;
         if (scoreEnabled) {
@@ -254,7 +270,7 @@ final class PanelView extends LinearLayout {
             speedChip.setContentDescription("Current speed");
             LayoutParams sp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
             sp.rightMargin = dp(6);
-            topRow.addView(speedChip, sp);
+            scoreRow.addView(speedChip, sp);
             scoreChip = text(16, true, dim);
             scoreChip.setGravity(Gravity.CENTER);
             scoreChip.setPadding(dp(16), dp(10), dp(16), dp(10));
@@ -262,10 +278,11 @@ final class PanelView extends LinearLayout {
             scoreChip.setClickable(true);
             scoreChip.setContentDescription("Open the driving score");
             scoreChip.setOnClickListener(v -> { if (onDrive != null) onDrive.run(); });
-            topRow.addView(scoreChip);
+            scoreRow.addView(scoreChip);
         }
         topRow.setVisibility(topRow.getChildCount() <= 1 ? GONE : VISIBLE);
         headerBlock.addView(topRow);
+        if (scoreRow != topRow && scoreRow.getChildCount() > 0) headerBlock.addView(scoreRow);
 
         // prayer strip: tap for the full table
         stripBox = new LinearLayout(getContext());
@@ -426,7 +443,7 @@ final class PanelView extends LinearLayout {
         radioBox.setOrientation(compact ? VERTICAL : HORIZONTAL);
         radioBox.setGravity(Gravity.CENTER);
         radioBox.setPadding(0, dp(8), 0, dp(8));
-        radioCover = new CoverView(getContext(), dark, compact ? 120 : 148);
+        radioCover = new CoverView(getContext(), dark, compact ? (scoreOwnRow ? 96 : 120) : 148);   // smaller when the Score chip takes a row
         radioBox.addView(radioCover);
         LinearLayout radioWords = new LinearLayout(getContext());
         radioWords.setOrientation(VERTICAL);

@@ -185,10 +185,10 @@ final class DriveScreen extends LinearLayout {
         for (int p = TRIP; p <= YEAR; p++) {
             final int which = p;
             boolean on = p == period;
-            TextView c = text(wide ? ScoreLayout.chip(NAMES[p], scores[p]) : ScoreLayout.chipNarrow(NAMES[p], scores[p]), wide ? 14 : 13, true,
+            TextView c = text(wide ? ScoreLayout.chip(NAMES[p], scores[p]) : ScoreLayout.chipNarrow(NAMES[p], scores[p]), wide ? 14 : 12, true,
                     on ? PanelStyle.fg(dark) : PanelStyle.dim(dark));
             c.setMaxLines(wide ? 1 : 2);
-            int h = Glass.dp(getContext(), wide ? 18 : 12), v = Glass.dp(getContext(), 8);
+            int h = Glass.dp(getContext(), wide ? 18 : 2), v = Glass.dp(getContext(), 8);   // narrow: every dp goes to "Month"
             c.setPadding(h, v, h, v);
             c.setGravity(Gravity.CENTER);
             c.setBackground(on ? Glass.button(getContext(), dark, false, true, 20) : Glass.pressOverlay(getContext(), dark, 20));
@@ -196,7 +196,7 @@ final class DriveScreen extends LinearLayout {
             c.setContentDescription(NAMES[p] + (scores[p] < 0 ? ", no drives" : ", score " + scores[p]));
             c.setOnClickListener(x -> { period = which; refresh(); sv.scrollTo(0, 0); });
             LayoutParams lp = wide ? new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT) : new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
-            if (chips.getChildCount() > 0) lp.leftMargin = Glass.dp(getContext(), 6);
+            if (chips.getChildCount() > 0) lp.leftMargin = Glass.dp(getContext(), wide ? 6 : 3);
             chips.addView(c, lp);
         }
         android.view.ViewGroup want = wide ? head : chipRow;

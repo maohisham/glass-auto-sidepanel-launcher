@@ -70,4 +70,14 @@ final class SplitPlan {
 
     /** True when the screen is split but the map is on the other side from the wanted one (null: the map window was not found). */
     static boolean wrongSide(Boolean mapFirst, boolean wantedMapFirst) { return mapFirst != null && mapFirst != wantedMapFirst; }
+
+    /**
+     * True when the panel's window doesn't meet the divider: the unit draws the divider in one place but gave the panel a
+     * window sized for another split, so part of the panel's side shows black. The edge facing the divider is compared:
+     * the left edge when the panel is on the last side, the right edge when it is first. Positions in px along x.
+     */
+    static boolean outOfSync(float dividerCenter, int panelLeft, int panelRight, int screenW, boolean panelLast) {
+        int edge = panelLast ? panelLeft : panelRight;
+        return Math.abs(edge - dividerCenter) > screenW * 0.05f;
+    }
 }

@@ -415,12 +415,14 @@ public class PanelActivity extends Activity {
     @Override
     public void onConfigurationChanged(Configuration c) {
         super.onConfigurationChanged(c);
+        SplitHelperService.panelBounds = getWindowManager().getCurrentWindowMetrics().getBounds();
         applyStyle(c);
     }
 
     @Override
     protected void onStart() {
         super.onStart();
+        SplitHelperService.panelBounds = getWindowManager().getCurrentWindowMetrics().getBounds();   // the helper checks it meets the divider
         ReturnButton.hide(this);   // the panel is back in front: the floating way back is no longer needed
         getSharedPreferences("pins", MODE_PRIVATE).registerOnSharedPreferenceChangeListener(pinsChanged);
         panel.refreshApps();       // a map app may have been installed or chosen while the panel was away
@@ -498,6 +500,7 @@ public class PanelActivity extends Activity {
     @Override
     protected void onStop() {
         super.onStop();
+        SplitHelperService.panelBounds = null;
         handler.removeCallbacks(tick);
         handler.removeCallbacks(demoStep);
         getSharedPreferences("pins", MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(pinsChanged);
