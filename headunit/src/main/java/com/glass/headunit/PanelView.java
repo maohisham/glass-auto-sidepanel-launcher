@@ -119,8 +119,8 @@ final class PanelView extends LinearLayout {
     /** Rebuilds only when something that changes the views changed. */
     void setStyle(PanelMode m, int textSize, int lyricsSize, boolean dark) {
         // a new width only matters when it moves the speed and Score chip to or from their own row
-        boolean ownRow = scoreEnabled && TopRowFit.secondRow(getResources().getConfiguration().screenWidthDp, builtIcons, m == PanelMode.COMPACT ? 12 : 20);
-        if (m == mode && textSize == this.textSize && lyricsSize == this.lyricsSize && dark == this.dark && ownRow == scoreOwnRow) return;
+        int[] fit = scoreEnabled ? TopRowFit.fit(getResources().getConfiguration().screenWidthDp, builtIcons, m == PanelMode.COMPACT ? 12 : 20) : new int[]{44, 12, 0};
+        if (m == mode && textSize == this.textSize && lyricsSize == this.lyricsSize && dark == this.dark && java.util.Arrays.equals(fit, builtFit)) return;
         this.mode = m;
         this.textSize = textSize;
         this.lyricsSize = lyricsSize;
@@ -148,6 +148,7 @@ final class PanelView extends LinearLayout {
 
     void showNowPlaying(NowPlaying n) {
         now = n == null ? NowPlaying.idle() : n;
+        showPlayerIcon();
         nowReceivedAt = SystemClock.elapsedRealtime();
         bindNow();
         bindLyricsArea();
@@ -187,6 +188,15 @@ final class PanelView extends LinearLayout {
         return t;
     }
 
+    /** The player button shows the app playing now (or the last one used), with the drawn note when there is none. */
+    private void showPlayerIcon() {
+        if (playerBtn == null) return;
+        String pkg = TopIcons.player(now.pkg, Settings.of(getContext()).lastPlayer());
+        if (java.util.Objects.equals(pkg, playerIconPkg)) return;
+        playerIconPkg = pkg;
+        playerBtn.setAppIcon(pkg == null ? null : AppIcons.get(getContext(), pkg));
+    }
+
     /** Icon size in dp, a little smaller on a narrow panel but never below a comfortable tap target. */
     private int iconDp(int base) { return Math.max(34, Math.round(base * (mode == PanelMode.COMPACT ? 0.92f : 1f))); }
 
@@ -215,6 +225,9 @@ final class PanelView extends LinearLayout {
 
     private int builtIcons;
     private boolean scoreOwnRow;
+    private int[] builtFit;
+    private IconView playerBtn;
+    private String playerIconPkg;
 
     private void build() {
         removeAllViews();
@@ -242,19 +255,39 @@ final class PanelView extends LinearLayout {
         topRow.setOrientation(HORIZONTAL);
         topRow.setGravity(Gravity.CENTER_VERTICAL);
         topRow.setPadding(0, 0, 0, dp(10));
-        boolean firstIcon = true;
-        if (onPlayer != null) { topRow.addView(icon(Icon.PLAYER, "Choose a player", 44, IconView.Style.NORMAL, () -> onPlayer.run()), gapped(0)); firstIcon = false; }
-        if (onSettings != null) { topRow.addView(icon(Icon.SETTINGS, "Settings", 44, IconView.Style.NORMAL, () -> onSettings.run()), gapped(firstIcon ? 0 : 12)); firstIcon = false; }
-        if (onApps != null) { topRow.addView(icon(Icon.APPS, "Apps", 44, IconView.Style.NORMAL, () -> onApps.run()), gapped(firstIcon ? 0 : 12)); firstIcon = false; }
-        if (mapsInstalled()) { topRow.addView(icon(Icon.MAPS, "Open the map app", 44, IconView.Style.NORMAL, this::openMaps), gapped(firstIcon ? 0 : 12)); firstIcon = false; }
         final String[] aa = androidAutoApp();
-        if (aa != null) topRow.addView(icon(Icon.CAR, "Android Auto", 44, IconView.Style.NORMAL, () -> openAndroidAuto(aa[0])), gapped(firstIcon ? 0 : 12));
-        topRow.addView(new View(getContext()), new LayoutParams(0, 1, 1f));
-        int icons = topRow.getChildCount() - 1;
+        String mapPkg = mapsInstalled() ? MapAppRepo.selected(getContext()) : null;
+        int icons = (onPlayer != null ? 1 : 0) + (onSettings != null ? 1 : 0) + (onApps != null ? 1 : 0) + (mapPkg != null ? 1 : 0) + (aa != null ? 1 : 0);
         builtIcons = icons;
-        // a narrow split can't fit the speed and the Score chip beside all the shortcuts: they get a row of their own
+        // full-size buttons when there is room; smaller ones keep the speed and Score on this row; only a narrow split
+        // gives them a row of their own
+        int[] fit = scoreEnabled ? TopRowFit.fit(getResources().getConfiguration().screenWidthDp, icons, mode == PanelMode.COMPACT ? 12 : 20) : new int[]{44, 12, 0};
+        int size = fit[0], gap = fit[1];
+        scoreOwnRow = fit[2] == 1;
+        builtFit = fit;
+        java.util.List<View> buttons = new java.util.ArrayList<>();
+        playerBtn = null;
+        playerIconPkg = null;   // a new button: show the icon again
+        if (onPlayer != null) {
+            playerBtn = new IconView(getContext(), Icon.PLAYER, "Choose a player", dark, size, IconView.Style.NORMAL, () -> onPlayer.run());
+            buttons.add(playerBtn);
+            showPlayerIcon();
+        }
+        if (onSettings != null) buttons.add(new IconView(getContext(), Icon.SETTINGS, "Settings", dark, size, IconView.Style.NORMAL, () -> onSettings.run()));
+        if (onApps != null) buttons.add(new IconView(getContext(), Icon.APPS, "Apps", dark, size, IconView.Style.NORMAL, () -> onApps.run()));
+        if (mapPkg != null) {
+            IconView m = new IconView(getContext(), Icon.MAPS, "Open the map app", dark, size, IconView.Style.NORMAL, this::openMaps);
+            m.setAppIcon(AppIcons.get(getContext(), mapPkg));
+            buttons.add(m);
+        }
+        if (aa != null) {
+            IconView a = new IconView(getContext(), Icon.CAR, "Android Auto", dark, size, IconView.Style.NORMAL, () -> openAndroidAuto(aa[0]));
+            a.setAppIcon(AppIcons.get(getContext(), aa[0]));
+            buttons.add(a);
+        }
+        for (View b : buttons) topRow.addView(b, gapped(topRow.getChildCount() == 0 ? 0 : gap));
+        topRow.addView(new View(getContext()), new LayoutParams(0, 1, 1f));
         LinearLayout scoreRow = topRow;
-        scoreOwnRow = scoreEnabled && TopRowFit.secondRow(getResources().getConfiguration().screenWidthDp, icons, mode == PanelMode.COMPACT ? 12 : 20);
         if (scoreOwnRow) {
             topRow.setPadding(0, 0, 0, dp(6));
             scoreRow = new LinearLayout(getContext());

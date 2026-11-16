@@ -224,15 +224,19 @@ public class SplitHelperService extends AccessibilityService {
             Spike.log(String.format(java.util.Locale.US, "helper: divider already near %.0f%%, leaving it", now * 100));
             return;
         }
-        // after the drag, check the divider really arrived; try once more if the first drag missed
-        dragDivider(now, target, attempt == 0 ? () -> settleThenMove(-1f, 0, 1) : null);
+        // after the drag, check the divider really arrived; try again if it missed (twice at most: the unit can overshoot)
+        dragDivider(now, target, attempt < 2 ? () -> settleThenMove(-1f, 0, attempt + 1) : null);
     }
 
-    /** After a nudge: where the divider and the panel's window ended up, for the log. */
+    /** After a nudge: where the divider and the panel's window ended up, then the ratio once they agree. */
     private void logSync() {
         Rect d = dividerBounds();
         Rect p = panelBounds;
         Spike.log("helper: after the nudge, divider " + (d == null ? "gone" : d.toShortString()) + ", panel " + (p == null ? "not shown" : p.toShortString()));
+        // once the divider and the panel agree, the divider's place can be trusted: one ordinary move to the setting
+        // (attempt 1, so no second nudge); while they still disagree, leave it
+        if (d != null && p != null && !SplitPlan.outOfSync(d.exactCenterX(), p.left, p.right, screen().width(), p.centerX() > d.exactCenterX()))
+            handler.postDelayed(() -> settleThenMove(-1f, 0, 1), 1500);   // the unit is still settling right after the nudge
     }
 
     /** Moves the divider to the ratio right now when the screen is already split (used when Settings changes the ratio). */
@@ -369,15 +373,19 @@ public class SplitHelperService extends AccessibilityService {
 
     Rect screen() { return getSystemService(WindowManager.class).getMaximumWindowMetrics().getBounds(); }
 
-    /** Drags the divider from one position to another (fractions of the screen) with a swipe; done runs afterwards. */
+    /**
+     * Drags the divider from one position to another (fractions of the screen), then holds the finger still for a moment
+     * before letting go: a release while still moving reads as a fling, and the unit carries the divider on to its next
+     * snap position. done runs afterwards.
+     */
     void dragDivider(float fromFraction, float toFraction, Runnable done) {
         Rect b = screen();
         float[] g = SplitPlan.drag(b.width(), b.height(), fromFraction, toFraction);
         Path p = new Path();
         p.moveTo(g[0], g[1]);
         p.lineTo(g[2], g[3]);
-        GestureDescription gd = new GestureDescription.Builder().addStroke(new GestureDescription.StrokeDescription(p, 0, 600)).build();
-        boolean sent = dispatchGesture(gd, new GestureResultCallback() {
+        GestureDescription.StrokeDescription move = new GestureDescription.StrokeDescription(p, 0, 600, true);
+        GestureResultCallback finished = new GestureResultCallback() {
             @Override public void onCompleted(GestureDescription d) {
                 Spike.log(String.format(java.util.Locale.US, "helper: dragged the divider %.0f%% -> %.0f%%", fromFraction * 100, toFraction * 100));
                 if (done != null) handler.postDelayed(done, SETTLE_MS);
@@ -386,6 +394,16 @@ public class SplitHelperService extends AccessibilityService {
                 Spike.log("helper: the divider drag was cancelled");
                 if (done != null) handler.postDelayed(done, SETTLE_MS);
             }
+        };
+        boolean sent = dispatchGesture(new GestureDescription.Builder().addStroke(move).build(), new GestureResultCallback() {
+            @Override public void onCompleted(GestureDescription d) {
+                Path hold = new Path();
+                hold.moveTo(g[2], g[3]);
+                hold.lineTo(g[2] + 0.5f, g[3]);
+                boolean held = dispatchGesture(new GestureDescription.Builder().addStroke(move.continueStroke(hold, 0, 350, false)).build(), finished, null);
+                if (!held) finished.onCompleted(d);
+            }
+            @Override public void onCancelled(GestureDescription d) { finished.onCancelled(d); }
         }, null);
         if (!sent) { Spike.log("helper: the unit refused the divider gesture"); if (done != null) done.run(); }
     }

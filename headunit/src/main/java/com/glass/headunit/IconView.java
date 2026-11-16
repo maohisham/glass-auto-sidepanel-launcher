@@ -34,6 +34,15 @@ final class IconView extends View {
         setStyle(style);
     }
 
+    private android.graphics.drawable.Drawable app;
+
+    /** Shows an app's own icon instead of the drawn one (null goes back to the drawn icon). */
+    void setAppIcon(android.graphics.drawable.Drawable d) {
+        if (d == app) return;
+        app = d;
+        invalidate();
+    }
+
     void setIcon(Icon i) {
         if (i == icon) return;
         icon = i;
@@ -62,6 +71,12 @@ final class IconView extends View {
 
     @Override
     protected void onDraw(Canvas c) {
+        if (app != null) {
+            int inset = Math.round(sizePx * 0.14f);
+            app.setBounds(inset, inset, sizePx - inset, sizePx - inset);
+            app.draw(c);
+            return;
+        }
         float icon = sizePx * (style == Style.MAIN ? 0.42f : 0.46f);
         c.save();
         c.translate((sizePx - icon) / 2f, (sizePx - icon) / 2f);

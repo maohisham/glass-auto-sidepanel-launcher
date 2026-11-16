@@ -6,9 +6,11 @@ import org.junit.Test;
 
 public class TopRowFitTest {
     @Test public void narrowSplitNeedsASecondRow() { assertTrue(TopRowFit.secondRow(305, 5, 12)); }
-    @Test public void fullScreenFitsOnOneRow() { assertFalse(TopRowFit.secondRow(1250, 5, 20)); }
-    @Test public void fewerIconsCanFit() { assertFalse(TopRowFit.secondRow(420, 3, 20)); assertTrue(TopRowFit.secondRow(420, 5, 20)); }
+    @Test public void fullScreenFitsOnOneRow() { assertFalse(TopRowFit.secondRow(1250, 5, 20)); assertArrayEquals(new int[]{44, 12, 0}, TopRowFit.fit(1250, 5, 20)); }
+    @Test public void fewerIconsCanFit() { assertFalse(TopRowFit.secondRow(420, 3, 20)); }
     @Test public void unknownWidthKeepsOneRow() { assertFalse(TopRowFit.secondRow(0, 5, 12)); }
-    // five shortcuts in a 500 dp split: "120 km/h" and "Score 100" don't fit beside them
-    @Test public void realChipWidthsAtFiveHundredDp() { assertTrue(TopRowFit.secondRow(500, 5, 20)); }
+    // the Carlinkit at 55%: about 520 dp, five shortcuts: smaller round buttons keep the speed and Score on the same row
+    @Test public void smallerButtonsBeforeASecondRow() { assertArrayEquals(new int[]{40, 8, 0}, TopRowFit.fit(520, 5, 20)); }
+    @Test public void smallestButtons() { assertArrayEquals(new int[]{36, 6, 0}, TopRowFit.fit(470, 5, 20)); }
+    @Test public void secondRowKeepsFullSizeButtons() { assertArrayEquals(new int[]{44, 12, 1}, TopRowFit.fit(305, 5, 12)); }
 }
