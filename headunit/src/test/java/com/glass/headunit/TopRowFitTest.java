@@ -13,4 +13,6 @@ public class TopRowFitTest {
     @Test public void smallerButtonsBeforeASecondRow() { assertArrayEquals(new int[]{40, 8, 0}, TopRowFit.fit(520, 5, 20)); }
     @Test public void smallestButtons() { assertArrayEquals(new int[]{36, 6, 0}, TopRowFit.fit(470, 5, 20)); }
     @Test public void secondRowKeepsFullSizeButtons() { assertArrayEquals(new int[]{44, 12, 1}, TopRowFit.fit(305, 5, 12)); }
+    // the Carlinkit at 60%: the panel window is 454 dp; 36 dp buttons with 4 dp gaps keep one row
+    @Test public void sixtyPercentSplitKeepsOneRow() { assertArrayEquals(new int[]{36, 4, 0}, TopRowFit.fit(454, 5, 20)); }
 }

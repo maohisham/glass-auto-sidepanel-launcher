@@ -8,7 +8,7 @@ package com.glass.headunit;
 final class TopRowFit {
 
     static final int SPEED = 80, SCORE = 130;
-    private static final int[][] SIZES = {{44, 12}, {40, 8}, {36, 6}};   // {button, gap}
+    private static final int[][] SIZES = {{44, 12}, {40, 8}, {36, 6}, {36, 4}};   // {button, gap}
 
     private TopRowFit() { }
 
