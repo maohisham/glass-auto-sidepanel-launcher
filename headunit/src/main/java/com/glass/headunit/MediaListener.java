@@ -27,6 +27,10 @@ public class MediaListener extends NotificationListenerService {
                     str(x, android.app.Notification.EXTRA_SUB_TEXT), str(x, android.app.Notification.EXTRA_BIG_TEXT));
             String pkg = sbn.getPackageName();
             long now = System.currentTimeMillis();
+            if (NavLog.MAPS.equals(pkg)) {
+                long eta = NavEta.eta(text, now, java.util.TimeZone.getDefault());
+                if (eta > 0) NavState.MAPS.update(sbn.getKey(), eta, now);   // for the trip helper: when you arrive
+            }
             Long at = navAt.get(pkg);
             if (!NavLog.shouldLog(text, navText.get(pkg), at == null ? 0 : at, now)) return;
             navText.put(pkg, text);
@@ -35,6 +39,11 @@ public class MediaListener extends NotificationListenerService {
         } catch (Exception e) {
             Spike.log("nav: could not read the notification (" + e.getClass().getSimpleName() + ")");
         }
+    }
+
+    @Override
+    public void onNotificationRemoved(android.service.notification.StatusBarNotification sbn) {
+        if (sbn != null && NavLog.MAPS.equals(sbn.getPackageName())) NavState.MAPS.removed(sbn.getKey());
     }
 
     private static String str(android.os.Bundle x, String key) {

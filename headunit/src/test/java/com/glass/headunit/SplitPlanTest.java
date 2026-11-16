@@ -148,4 +148,15 @@ public class SplitPlanTest {
         assertFalse(SplitPlan.wrongSide(true, true));
         assertFalse(SplitPlan.wrongSide(null, true));
     }
+
+    // the Carlinkit after a restart: the divider is drawn at 53% but the panel was given a window for a 70% split
+    @Test public void panelWindowOutOfSyncWithTheDivider() {
+        assertTrue(SplitPlan.outOfSync(1012, 1359, 1920, 1920, true));
+        assertFalse(SplitPlan.outOfSync(1012, 1020, 1920, 1920, true));
+        assertFalse(SplitPlan.outOfSync(1012, 1050, 1920, 1920, true));
+    }
+    @Test public void panelOnTheFirstSideComparesItsRightEdge() {
+        assertTrue(SplitPlan.outOfSync(900, 0, 560, 1920, false));
+        assertFalse(SplitPlan.outOfSync(900, 0, 890, 1920, false));
+    }
 }

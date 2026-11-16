@@ -118,7 +118,9 @@ final class PanelView extends LinearLayout {
 
     /** Rebuilds only when something that changes the views changed. */
     void setStyle(PanelMode m, int textSize, int lyricsSize, boolean dark) {
-        if (m == mode && textSize == this.textSize && lyricsSize == this.lyricsSize && dark == this.dark) return;
+        // a new width only matters when it moves the speed and Score chip to or from their own row
+        int[] fit = scoreEnabled ? TopRowFit.fit(getResources().getConfiguration().screenWidthDp, builtIcons, m == PanelMode.COMPACT ? 12 : 20) : new int[]{44, 12, 0};
+        if (m == mode && textSize == this.textSize && lyricsSize == this.lyricsSize && dark == this.dark && java.util.Arrays.equals(fit, builtFit)) return;
         this.mode = m;
         this.textSize = textSize;
         this.lyricsSize = lyricsSize;
@@ -146,6 +148,7 @@ final class PanelView extends LinearLayout {
 
     void showNowPlaying(NowPlaying n) {
         now = n == null ? NowPlaying.idle() : n;
+        showPlayerIcon();
         nowReceivedAt = SystemClock.elapsedRealtime();
         bindNow();
         bindLyricsArea();
@@ -185,6 +188,15 @@ final class PanelView extends LinearLayout {
         return t;
     }
 
+    /** The player button shows the app playing now (or the last one used), with the drawn note when there is none. */
+    private void showPlayerIcon() {
+        if (playerBtn == null) return;
+        String pkg = TopIcons.player(now.pkg, Settings.of(getContext()).lastPlayer());
+        if (java.util.Objects.equals(pkg, playerIconPkg)) return;
+        playerIconPkg = pkg;
+        playerBtn.setAppIcon(pkg == null ? null : AppIcons.get(getContext(), pkg));
+    }
+
     /** Icon size in dp, a little smaller on a narrow panel but never below a comfortable tap target. */
     private int iconDp(int base) { return Math.max(34, Math.round(base * (mode == PanelMode.COMPACT ? 0.92f : 1f))); }
 
@@ -210,6 +222,43 @@ final class PanelView extends LinearLayout {
         lp.leftMargin = dp(leftDp);
         return lp;
     }
+
+    private LinearLayout tripLine;
+    private TextView arriveText, masjidChip, breakRow;
+    private String tripArrive, tripBreak;
+    private boolean tripMasjid, tripNavigating;
+    private java.util.function.Consumer<String> onSearch;
+    private Runnable onBreakDismissed;
+
+    /** The trip helper's map searches ("masjid", "R&R") and the break row being closed by a tap. */
+    void setOnSearch(java.util.function.Consumer<String> search, Runnable breakDismissed) { onSearch = search; onBreakDismissed = breakDismissed; }
+
+    /** What the trip helper shows: "arrive …" and Find masjid under the prayer line, and the break row; nulls hide them. */
+    void setTrip(String arrive, boolean masjid, String breakLine, boolean navigating) {
+        tripNavigating = navigating;   // the break row then only closes on a tap: a search would be ignored
+        if (java.util.Objects.equals(arrive, tripArrive) && masjid == tripMasjid && java.util.Objects.equals(breakLine, tripBreak)) return;
+        tripArrive = arrive;
+        tripMasjid = masjid;
+        tripBreak = breakLine;
+        bindTrip();
+    }
+
+    private void bindTrip() {
+        if (tripLine == null) return;
+        Changed.set(arriveText, tripArrive == null ? "" : tripArrive);
+        arriveText.setVisibility(tripArrive == null ? GONE : VISIBLE);
+        masjidChip.setVisibility(tripMasjid ? VISIBLE : GONE);
+        tripLine.setVisibility(tripArrive != null || tripMasjid ? VISIBLE : GONE);
+        if (tripBreak != null) Changed.set(breakRow, tripBreak);
+        breakRow.setVisibility(tripBreak == null ? GONE : VISIBLE);
+        if (stripBox != null) updateStrip();
+    }
+
+    private int builtIcons;
+    private boolean scoreOwnRow;
+    private int[] builtFit;
+    private IconView playerBtn;
+    private String playerIconPkg;
 
     private void build() {
         removeAllViews();
@@ -237,14 +286,46 @@ final class PanelView extends LinearLayout {
         topRow.setOrientation(HORIZONTAL);
         topRow.setGravity(Gravity.CENTER_VERTICAL);
         topRow.setPadding(0, 0, 0, dp(10));
-        boolean firstIcon = true;
-        if (onPlayer != null) { topRow.addView(icon(Icon.PLAYER, "Choose a player", 44, IconView.Style.NORMAL, () -> onPlayer.run()), gapped(0)); firstIcon = false; }
-        if (onSettings != null) { topRow.addView(icon(Icon.SETTINGS, "Settings", 44, IconView.Style.NORMAL, () -> onSettings.run()), gapped(firstIcon ? 0 : 12)); firstIcon = false; }
-        if (onApps != null) { topRow.addView(icon(Icon.APPS, "Apps", 44, IconView.Style.NORMAL, () -> onApps.run()), gapped(firstIcon ? 0 : 12)); firstIcon = false; }
-        if (mapsInstalled()) { topRow.addView(icon(Icon.MAPS, "Open the map app", 44, IconView.Style.NORMAL, this::openMaps), gapped(firstIcon ? 0 : 12)); firstIcon = false; }
         final String[] aa = androidAutoApp();
-        if (aa != null) topRow.addView(icon(Icon.CAR, "Android Auto", 44, IconView.Style.NORMAL, () -> openAndroidAuto(aa[0])), gapped(firstIcon ? 0 : 12));
+        String mapPkg = mapsInstalled() ? MapAppRepo.selected(getContext()) : null;
+        int icons = (onPlayer != null ? 1 : 0) + (onSettings != null ? 1 : 0) + (onApps != null ? 1 : 0) + (mapPkg != null ? 1 : 0) + (aa != null ? 1 : 0);
+        builtIcons = icons;
+        // full-size buttons when there is room; smaller ones keep the speed and Score on this row; only a narrow split
+        // gives them a row of their own
+        int[] fit = scoreEnabled ? TopRowFit.fit(getResources().getConfiguration().screenWidthDp, icons, mode == PanelMode.COMPACT ? 12 : 20) : new int[]{44, 12, 0};
+        int size = fit[0], gap = fit[1];
+        scoreOwnRow = fit[2] == 1;
+        builtFit = fit;
+        java.util.List<View> buttons = new java.util.ArrayList<>();
+        playerBtn = null;
+        playerIconPkg = null;   // a new button: show the icon again
+        if (onPlayer != null) {
+            playerBtn = new IconView(getContext(), Icon.PLAYER, "Choose a player", dark, size, IconView.Style.NORMAL, () -> onPlayer.run());
+            buttons.add(playerBtn);
+            showPlayerIcon();
+        }
+        if (onSettings != null) buttons.add(new IconView(getContext(), Icon.SETTINGS, "Settings", dark, size, IconView.Style.NORMAL, () -> onSettings.run()));
+        if (onApps != null) buttons.add(new IconView(getContext(), Icon.APPS, "Apps", dark, size, IconView.Style.NORMAL, () -> onApps.run()));
+        if (mapPkg != null) {
+            IconView m = new IconView(getContext(), Icon.MAPS, "Open the map app", dark, size, IconView.Style.NORMAL, this::openMaps);
+            m.setAppIcon(AppIcons.get(getContext(), mapPkg));
+            buttons.add(m);
+        }
+        if (aa != null) {
+            IconView a = new IconView(getContext(), Icon.CAR, "Android Auto", dark, size, IconView.Style.NORMAL, () -> openAndroidAuto(aa[0]));
+            a.setAppIcon(AppIcons.get(getContext(), aa[0]));
+            buttons.add(a);
+        }
+        for (View b : buttons) topRow.addView(b, gapped(topRow.getChildCount() == 0 ? 0 : gap));
         topRow.addView(new View(getContext()), new LayoutParams(0, 1, 1f));
+        LinearLayout scoreRow = topRow;
+        if (scoreOwnRow) {
+            topRow.setPadding(0, 0, 0, dp(6));
+            scoreRow = new LinearLayout(getContext());
+            scoreRow.setOrientation(HORIZONTAL);
+            scoreRow.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+            scoreRow.setPadding(0, 0, 0, dp(10));
+        }
         scoreChip = null;
         speedChip = null;
         if (scoreEnabled) {
@@ -254,7 +335,7 @@ final class PanelView extends LinearLayout {
             speedChip.setContentDescription("Current speed");
             LayoutParams sp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
             sp.rightMargin = dp(6);
-            topRow.addView(speedChip, sp);
+            scoreRow.addView(speedChip, sp);
             scoreChip = text(16, true, dim);
             scoreChip.setGravity(Gravity.CENTER);
             scoreChip.setPadding(dp(16), dp(10), dp(16), dp(10));
@@ -262,10 +343,11 @@ final class PanelView extends LinearLayout {
             scoreChip.setClickable(true);
             scoreChip.setContentDescription("Open the driving score");
             scoreChip.setOnClickListener(v -> { if (onDrive != null) onDrive.run(); });
-            topRow.addView(scoreChip);
+            scoreRow.addView(scoreChip);
         }
         topRow.setVisibility(topRow.getChildCount() <= 1 ? GONE : VISIBLE);
         headerBlock.addView(topRow);
+        if (scoreRow != topRow && scoreRow.getChildCount() > 0) headerBlock.addView(scoreRow);
 
         // prayer strip: tap for the full table
         stripBox = new LinearLayout(getContext());
@@ -291,6 +373,25 @@ final class PanelView extends LinearLayout {
         pl.leftMargin = dp(8);
         prayerLine.addView(prayerText, pl);
         prayerBox = tapArea("Open the prayer times", prayerLine, () -> { if (onPrayer != null) onPrayer.run(); });
+        // the trip helper, under the prayer line while driving: when you arrive, and a button to find a masjid
+        tripLine = new LinearLayout(getContext());
+        tripLine.setOrientation(HORIZONTAL);
+        tripLine.setGravity(Gravity.CENTER_VERTICAL | (mode == PanelMode.COMPACT || clockOn ? Gravity.START : Gravity.END));
+        arriveText = text(15, false, dim);
+        tripLine.addView(arriveText);
+        masjidChip = text(15, true, accent);
+        masjidChip.setText("🕌 Find masjid");
+        masjidChip.setPadding(dp(12), dp(6), dp(12), dp(6));
+        masjidChip.setBackground(Glass.button(getContext(), dark, false, false, 16));
+        masjidChip.setClickable(true);
+        masjidChip.setContentDescription("Find a masjid nearby in the map app");
+        masjidChip.setOnClickListener(v -> { if (onSearch != null) onSearch.accept("masjid"); });
+        LayoutParams mc = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        mc.leftMargin = dp(10);
+        tripLine.addView(masjidChip, mc);
+        LayoutParams tl = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        tl.topMargin = dp(6);
+        prayerBox.addView(tripLine, tl);
         clockText = null;
         ampmText = null;
         dateText = null;
@@ -339,6 +440,30 @@ final class PanelView extends LinearLayout {
             stripBox.addView(prayerBox, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
         }
         headerBlock.addView(stripBox);
+        // a long drive: a break suggestion, tap to search for an R&R. On a wide strip it sits under the weather, as a
+        // chip like Find masjid, so the panel doesn't grow; otherwise it is a slim row of its own under the strip
+        boolean inStrip = !clockOn && mode != PanelMode.COMPACT;
+        breakRow = text(inStrip ? 15 : 16, true, accent);
+        if (inStrip) breakRow.setPadding(dp(12), dp(6), dp(12), dp(6));
+        else breakRow.setPadding(dp(14), dp(10), dp(14), dp(10));
+        breakRow.setBackground(Glass.button(getContext(), dark, false, false, inStrip ? 16 : 14));
+        breakRow.setClickable(true);
+        breakRow.setContentDescription("Find an R&R nearby in the map app");
+        breakRow.setOnClickListener(v -> {
+            breakRow.setVisibility(GONE);   // at once, so a second tap can't search again
+            if (onSearch != null && !tripNavigating) onSearch.accept("R&R");
+            if (onBreakDismissed != null) onBreakDismissed.run();
+        });
+        if (inStrip) {
+            LayoutParams br = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+            br.topMargin = dp(6);
+            weatherBox.addView(breakRow, br);
+        } else {
+            LayoutParams br = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+            br.topMargin = dp(8);
+            headerBlock.addView(breakRow, br);
+        }
+        bindTrip();
 
         banners = new LinearLayout(getContext());
         bannersShown = null;   // a new, empty notice area: fill it on the next bind
@@ -426,7 +551,7 @@ final class PanelView extends LinearLayout {
         radioBox.setOrientation(compact ? VERTICAL : HORIZONTAL);
         radioBox.setGravity(Gravity.CENTER);
         radioBox.setPadding(0, dp(8), 0, dp(8));
-        radioCover = new CoverView(getContext(), dark, compact ? 120 : 148);
+        radioCover = new CoverView(getContext(), dark, compact ? (scoreOwnRow ? 96 : 120) : 148);   // smaller when the Score chip takes a row
         radioBox.addView(radioCover);
         LinearLayout radioWords = new LinearLayout(getContext());
         radioWords.setOrientation(VERTICAL);
@@ -578,7 +703,10 @@ final class PanelView extends LinearLayout {
     private void updateStrip() {
         boolean idle = now.pkg == null;
         boolean haveRight = prayer != null || weather != null;
-        boolean showRight = !idle && haveRight;
+        // nothing playing: the prayer table below has the times, so the strip hides, unless the trip helper has
+        // something to show (it lives in the strip)
+        boolean trip = tripArrive != null || tripMasjid || tripBreak != null;
+        boolean showRight = (!idle || trip) && haveRight;
         if (clockOn) {
             stripBox.setVisibility(VISIBLE);
             rightCol.setVisibility(showRight ? VISIBLE : GONE);

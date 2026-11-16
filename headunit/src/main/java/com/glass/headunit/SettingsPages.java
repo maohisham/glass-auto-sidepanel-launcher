@@ -215,98 +215,85 @@ final class SettingsPages {
         LinearLayout f = fold(box, "mileage", "Mileage and service", false);
         Mileage.State m = s.mileageState();
         Mileage.Status st = CarStatus.status(a);
+        // everything here is a draft until "Save mileage and service": picking a date doesn't rebuild, so typed km stay
+        if (a.mileageDraft == null) a.mileageDraft = MileageDraft.of(m, st.odometerKm);
+        final MileageDraft d = a.mileageDraft;
+        final TextView saved = w.note(a.mileageSaved ? "Saved." : d.differs(m) ? "Not saved yet" : "");
+        a.mileageSaved = false;
+        final Runnable changed = () -> saved.setText(d.differs(s.mileageState()) ? "Not saved yet" : "");
 
         f.addView(w.title("Odometer now"));
-        final EditText odo = field(m.enteredAt > 0 ? String.valueOf(st.odometerKm) : "", "84312", android.text.InputType.TYPE_CLASS_NUMBER);
-        odo.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-        f.addView(odo);
+        f.addView(draftField(d.odometerText, "84312", t -> d.odometerText = t, changed));
         f.addView(w.note(m.enteredAt > 0 ? String.format(java.util.Locale.US, "≈ %,d km (estimated from the GPS since your last reading)", st.odometerKm)
                 : "Enter the reading from the car's dashboard. The panel keeps it up to date from then on."));
-        f.addView(w.bigButton("Save the reading", () -> {
-            Integer km = number(odo);
-            if (km == null) return;
-            Mileage.State x = s.mileageState();
-            Mileage.enterOdometer(x, km, System.currentTimeMillis());
-            s.setMileageState(x);
-            Spike.log("mileage: odometer entered");
-            CarStatus.send(a);
-            a.rebuildBody();
-        }));
 
         f.addView(w.title("Last service"));
-        f.addView(dateButton(m.lastServiceDate, "Last service date", d -> {
-            Mileage.State x = s.mileageState();
-            x.lastServiceDate = d;
-            s.setMileageState(x);
-            CarStatus.send(a);
-            a.rebuildBody();
-        }));
-        final EditText lastKm = field(m.lastServiceKm < 0 ? "" : String.valueOf(m.lastServiceKm), "at km, e.g. 74312", android.text.InputType.TYPE_CLASS_NUMBER);
-        lastKm.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-        f.addView(lastKm);
-        f.addView(w.bigButton("Save the last service km", () -> {
-            Mileage.State x = s.mileageState();
-            Integer km = number(lastKm);
-            x.lastServiceKm = km == null ? -1 : km;
-            s.setMileageState(x);
-            CarStatus.send(a);
-            a.rebuildBody();
-        }));
+        f.addView(draftDate(d.lastServiceDate, "Last service date", x -> d.lastServiceDate = x, changed));
+        f.addView(draftField(d.lastServiceKmText, "at km, e.g. 74312", t -> d.lastServiceKmText = t, changed));
 
         f.addView(w.title("Next service"));
-        final EditText nextKm = field(m.nextServiceKm < 0 ? "" : String.valueOf(m.nextServiceKm), "at km, e.g. 94312", android.text.InputType.TYPE_CLASS_NUMBER);
-        nextKm.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-        f.addView(nextKm);
-        f.addView(dateButton(m.nextServiceDate, "Next service date", d -> {
-            Mileage.State x = s.mileageState();
-            Mileage.setNextService(x, x.nextServiceKm, d);
-            s.setMileageState(x);
-            CarStatus.send(a);
-            a.rebuildBody();
-        }));
-        f.addView(w.bigButton("Save the next service km", () -> {
-            Mileage.State x = s.mileageState();
-            Integer km = number(nextKm);
-            Mileage.setNextService(x, km == null ? -1 : km, x.nextServiceDate);
-            s.setMileageState(x);
-            CarStatus.send(a);
-            a.rebuildBody();
-        }));
+        f.addView(draftField(d.nextServiceKmText, "at km, e.g. 94312", t -> d.nextServiceKmText = t, changed));
+        f.addView(draftDate(d.nextServiceDate, "Next service date", x -> d.nextServiceDate = x, changed));
         String due = Mileage.cardLine(st);
         f.addView(w.note(st.dueEstimate != null ? "Estimated due " + st.dueEstimate + (due != null ? " · " + due : "")
                 : due != null ? due : "Due date estimate after a week of drives."));
+
+        f.addView(w.title("Road tax and insurance renewal"));
+        f.addView(draftDate(d.roadTaxDate, "Renewal date", x -> d.roadTaxDate = x, changed));
+        if (st.roadTaxDaysLeft != null) f.addView(w.note(st.roadTaxDaysLeft >= 0 ? st.roadTaxDaysLeft + " days left" : "Overdue by " + (-st.roadTaxDaysLeft) + " days"));
+
+        f.addView(w.bigButton("Save mileage and service", () -> {
+            Mileage.State x = s.mileageState();
+            if (!MileageDraft.apply(d, x, System.currentTimeMillis())) { saved.setText("Nothing to save."); return; }
+            s.setMileageState(x);
+            a.mileageDraft = null;
+            a.mileageSaved = true;
+            Spike.log("mileage: saved, odometer ≈ " + Mileage.odometer(x) + " km");
+            CarStatus.send(a);
+            a.rebuildBody();
+        }));
+        f.addView(saved);
+
         f.addView(w.bigButton("Service done today", () -> {
             Mileage.State x = s.mileageState();
-            Mileage.serviceDone(x, System.currentTimeMillis(), java.util.TimeZone.getDefault());
+            MileageDraft.serviceDone(d, x, System.currentTimeMillis(), java.util.TimeZone.getDefault());
             s.setMileageState(x);
+            a.mileageDraft = null;
+            a.mileageSaved = true;
             Spike.log("mileage: service done, next suggested at " + x.nextServiceKm + " km or " + x.nextServiceDate);
             CarStatus.send(a);
             a.rebuildBody();
         }));
-
-        f.addView(w.title("Road tax and insurance renewal"));
-        f.addView(dateButton(m.roadTaxDate, "Renewal date", d -> {
-            Mileage.State x = s.mileageState();
-            x.roadTaxDate = d;
-            s.setMileageState(x);
-            CarStatus.send(a);
-            a.rebuildBody();
-        }));
-        if (st.roadTaxDaysLeft != null) f.addView(w.note(st.roadTaxDaysLeft >= 0 ? st.roadTaxDaysLeft + " days left" : "Overdue by " + (-st.roadTaxDaysLeft) + " days"));
     }
 
-    private static Integer number(EditText e) {
-        try { return Integer.parseInt(e.getText().toString().replace(",", "").trim()); } catch (Exception x) { return null; }
-    }
-
-    /** A big button showing a date ("yyyy-MM-dd") that opens Android's date picker. */
-    private View dateButton(String date, String label, java.util.function.Consumer<String> picked) {
-        return w.bigButton(date == null ? label + ": choose" : label + ": " + date, () -> {
-            java.time.LocalDate d;
-            try { d = date == null ? java.time.LocalDate.now() : java.time.LocalDate.parse(date); } catch (Exception e) { d = java.time.LocalDate.now(); }
-            new android.app.DatePickerDialog(a, (v, y, mo, day) -> picked.accept(java.time.LocalDate.of(y, mo + 1, day).toString()),
-                    d.getYear(), d.getMonthValue() - 1, d.getDayOfMonth()).show();
+    /** A number field whose text goes into the draft as it is typed. */
+    private EditText draftField(String value, String hint, java.util.function.Consumer<String> set, Runnable changed) {
+        EditText e = field(value, hint, android.text.InputType.TYPE_CLASS_NUMBER);
+        e.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        e.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence t, int st, int c, int af) { }
+            @Override public void onTextChanged(CharSequence t, int st, int b, int c) { }
+            @Override public void afterTextChanged(android.text.Editable t) { set.accept(t.toString()); changed.run(); }
         });
+        return e;
+    }
+
+    /** A big button showing a date ("yyyy-MM-dd") that opens Android's date picker; the pick goes into the draft and the button. */
+    private View draftDate(String date, String label, java.util.function.Consumer<String> set, Runnable changed) {
+        final String[] now = {date};
+        final android.widget.Button[] b = new android.widget.Button[1];
+        View v = w.bigButton(label + ": " + (date == null ? "choose" : date), () -> {
+            java.time.LocalDate d;
+            try { d = now[0] == null ? java.time.LocalDate.now() : java.time.LocalDate.parse(now[0]); } catch (Exception e) { d = java.time.LocalDate.now(); }
+            new android.app.DatePickerDialog(a, (p, y, mo, day) -> {
+                now[0] = java.time.LocalDate.of(y, mo + 1, day).toString();
+                set.accept(now[0]);
+                b[0].setText(label + ": " + now[0]);
+                changed.run();
+            }, d.getYear(), d.getMonthValue() - 1, d.getDayOfMonth()).show();
+        });
+        b[0] = (android.widget.Button) v;
+        return v;
     }
 
     // ---- Bubbles ----

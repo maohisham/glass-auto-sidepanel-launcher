@@ -52,6 +52,7 @@ public class PanelActivity extends Activity {
                 EcoScore trip = DriveTrip.trip();
                 panel.showScore(trip.isTripActive() ? trip.calculate(System.currentTimeMillis()) : null);
                 if (driveScreen != null) driveScreen.refresh();
+                if (!demo) updateTrip();
             }
             if (!demo && tickCount % 30 == 0) DriveLog.save(PanelActivity.this, DriveTrip.trip());   // the running trip, into the drive log
             if (tickCount % 60 == 0) everyMinute();
@@ -90,6 +91,7 @@ public class PanelActivity extends Activity {
         panel.setOnPrayer(this::showPrayer);
         panel.setOnDrive(this::showDrive);
         panel.setOnWeather(this::showWeather);
+        panel.setOnSearch(this::searchNearby, () -> breakDismissed = TripHelper.breakSlot(DriveRecorder.drivingSince(), System.currentTimeMillis(), -1));
         root = new android.widget.FrameLayout(this);
         root.addView(panel, new android.widget.FrameLayout.LayoutParams(-1, -1));
         setContentView(root);
@@ -222,6 +224,41 @@ public class PanelActivity extends Activity {
         if (summaryTimeout != null) handler.removeCallbacks(summaryTimeout);
         summaryTimeout = () -> { if (card.getParent() != null) { Spike.log("summary: closed (timeout)"); close.run(); } };
         handler.postDelayed(summaryTimeout, 10_000);
+    }
+
+    private long breakDismissed = -1;
+    private String tripShown = "";
+
+    /** The trip helper: Find masjid (and when you arrive) on the prayer line, and the break row, while driving. */
+    private void updateTrip() {
+        long now = System.currentTimeMillis();
+        java.util.TimeZone tz = java.util.TimeZone.getDefault();
+        long began = DriveRecorder.drivingSince();
+        Prayer.Data p = panel.prayer();
+        long eta = NavState.MAPS.eta(now);
+        TripHelper.Line line = new TripHelper.Line(false, null);
+        if (p != null && !p.nextName.isEmpty()) {
+            java.util.Calendar c = java.util.Calendar.getInstance(tz);
+            c.setTimeInMillis(now);
+            int since = c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE) - Prayer.hhmm(p.currentTime);
+            if (since < 0) since += 24 * 60;   // before Subuh the current prayer is last night's Isyak
+            line = TripHelper.masjid(began > 0, p.nextName, p.nextMs, since, eta, now, tz);
+        }
+        long slot = TripHelper.breakSlot(began, now, breakDismissed);
+        String brk = slot > 0 ? TripHelper.breakLine(began, now, eta > 0) : null;
+        panel.setTrip(line.arrive, line.button, brk, eta > 0);
+        String shown = (line.button ? "masjid" : "") + (line.arrive != null ? " " + line.arrive : "") + (brk != null ? " break" : "");
+        if (!shown.equals(tripShown)) { tripShown = shown; Spike.log("trip: " + (shown.isEmpty() ? "nothing shown" : shown.trim())); }
+    }
+
+    /** Opens the map app beside the panel with a search near the car ("masjid", "R&R"). */
+    private void searchNearby(String query) {
+        String pkg = MapAppRepo.selected(this);
+        android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(TripHelper.searchUri(pkg, query)));
+        if (pkg != null) i.setPackage(pkg);
+        i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT);
+        Spike.log("trip: searching " + (pkg == null ? "the map app" : pkg) + " for " + query);
+        Intents.safeStart(this, i, "the map app");
     }
 
     /** The rain heads-up in the weather line: from the forecast, from the current hour. */
@@ -415,12 +452,14 @@ public class PanelActivity extends Activity {
     @Override
     public void onConfigurationChanged(Configuration c) {
         super.onConfigurationChanged(c);
+        SplitHelperService.panelBounds = getWindowManager().getCurrentWindowMetrics().getBounds();
         applyStyle(c);
     }
 
     @Override
     protected void onStart() {
         super.onStart();
+        SplitHelperService.panelBounds = getWindowManager().getCurrentWindowMetrics().getBounds();   // the helper checks it meets the divider
         ReturnButton.hide(this);   // the panel is back in front: the floating way back is no longer needed
         getSharedPreferences("pins", MODE_PRIVATE).registerOnSharedPreferenceChangeListener(pinsChanged);
         panel.refreshApps();       // a map app may have been installed or chosen while the panel was away
@@ -437,6 +476,12 @@ public class PanelActivity extends Activity {
             seedDemoTrip();
             panel.showScore(DriveTrip.trip().calculate(System.currentTimeMillis()));
             panel.showData(demoPrayer(), demoWeather(), false, false);
+            // --ez trip true: the trip helper as it looks on a long drive with a prayer before arrival
+            // (--ez nav true: the same while Google Maps navigates: no buttons, only what is coming)
+            if (getIntent().getBooleanExtra("trip", false)) {
+                boolean nav = getIntent().getBooleanExtra("nav", false);
+                panel.setTrip(nav ? "Asar before you arrive (4:40 PM)" : null, !nav, nav ? "☕ 2 h driving · time for a break" : "☕ 2 h driving · Find R&R", nav);
+            }
             // --ez idle true shows the nothing-playing screen (the prayer table) instead of a song
             if (getIntent().getBooleanExtra("idle", false)) panel.showNowPlaying(NowPlaying.idle());
             else if (getIntent().getBooleanExtra("radio", false)) panel.showNowPlaying(demoRadio());   // --ez radio true: a station instead of a song
@@ -498,6 +543,7 @@ public class PanelActivity extends Activity {
     @Override
     protected void onStop() {
         super.onStop();
+        SplitHelperService.panelBounds = null;
         handler.removeCallbacks(tick);
         handler.removeCallbacks(demoStep);
         getSharedPreferences("pins", MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(pinsChanged);

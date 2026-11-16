@@ -208,9 +208,35 @@ public class SplitHelperService extends AccessibilityService {
         float now = landscape ? d.exactCenterX() / screen.width() : d.exactCenterY() / screen.height();
         Spike.log(String.format(java.util.Locale.US, "helper: map share %.0f%%, map is %s, divider at %.0f%% -> target %.0f%%",
                 share * 100, mapFirst == null ? "on an unknown side (using the swap setting)" : (mapFirst ? "first" : "last"), now * 100, target * 100));
-        if (!SplitPlan.needsDrag(now, target)) { Spike.log(String.format(java.util.Locale.US, "helper: divider already near %.0f%%, leaving it", now * 100)); return; }
-        // after the drag, check the divider really arrived; try once more if the first drag missed
-        dragDivider(now, target, attempt == 0 ? () -> settleThenMove(-1f, 0, 1) : null);
+        if (!SplitPlan.needsDrag(now, target)) {
+            Rect p = panelBounds;
+            if (attempt == 0 && landscape && p != null && p.width() < screen.width() * 0.9f
+                    && SplitPlan.outOfSync(d.exactCenterX(), p.left, p.right, screen.width(), p.centerX() > d.exactCenterX())) {
+                // the unit drew the divider here but sized the panel's window for another split (black beside the panel):
+                // a small drag away and back makes it size both sides again
+                float nudge = now + (target >= now ? 0.02f : -0.02f);   // a small drag towards the setting; the unit snaps it
+                Spike.log(String.format(java.util.Locale.US, "helper: the panel's window (%d-%d px) doesn't meet the divider at %.0f px; nudging it so the unit sizes the panel again",
+                        p.left, p.right, d.exactCenterX()));
+                // no second drag afterwards: until the unit settles, the divider's reported place can be the stale one
+                dragDivider(now, nudge, this::logSync);
+                return;
+            }
+            Spike.log(String.format(java.util.Locale.US, "helper: divider already near %.0f%%, leaving it", now * 100));
+            return;
+        }
+        // after the drag, check the divider really arrived; try again if it missed (twice at most: the unit can overshoot)
+        dragDivider(now, target, attempt < 2 ? () -> settleThenMove(-1f, 0, attempt + 1) : null);
+    }
+
+    /** After a nudge: where the divider and the panel's window ended up, then the ratio once they agree. */
+    private void logSync() {
+        Rect d = dividerBounds();
+        Rect p = panelBounds;
+        Spike.log("helper: after the nudge, divider " + (d == null ? "gone" : d.toShortString()) + ", panel " + (p == null ? "not shown" : p.toShortString()));
+        // once the divider and the panel agree, the divider's place can be trusted: one ordinary move to the setting
+        // (attempt 1, so no second nudge); while they still disagree, leave it
+        if (d != null && p != null && !SplitPlan.outOfSync(d.exactCenterX(), p.left, p.right, screen().width(), p.centerX() > d.exactCenterX()))
+            handler.postDelayed(() -> settleThenMove(-1f, 0, 1), 1500);   // the unit is still settling right after the nudge
     }
 
     /** Moves the divider to the ratio right now when the screen is already split (used when Settings changes the ratio). */
@@ -342,17 +368,24 @@ public class SplitHelperService extends AccessibilityService {
         return sb.toString();
     }
 
+    /** The panel's own window as the system sized it (set by PanelActivity when shown or resized); null when not known. */
+    static volatile Rect panelBounds;
+
     Rect screen() { return getSystemService(WindowManager.class).getMaximumWindowMetrics().getBounds(); }
 
-    /** Drags the divider from one position to another (fractions of the screen) with a swipe; done runs afterwards. */
+    /**
+     * Drags the divider from one position to another (fractions of the screen), then holds the finger still for a moment
+     * before letting go: a release while still moving reads as a fling, and the unit carries the divider on to its next
+     * snap position. done runs afterwards.
+     */
     void dragDivider(float fromFraction, float toFraction, Runnable done) {
         Rect b = screen();
         float[] g = SplitPlan.drag(b.width(), b.height(), fromFraction, toFraction);
         Path p = new Path();
         p.moveTo(g[0], g[1]);
         p.lineTo(g[2], g[3]);
-        GestureDescription gd = new GestureDescription.Builder().addStroke(new GestureDescription.StrokeDescription(p, 0, 600)).build();
-        boolean sent = dispatchGesture(gd, new GestureResultCallback() {
+        GestureDescription.StrokeDescription move = new GestureDescription.StrokeDescription(p, 0, 600, true);
+        GestureResultCallback finished = new GestureResultCallback() {
             @Override public void onCompleted(GestureDescription d) {
                 Spike.log(String.format(java.util.Locale.US, "helper: dragged the divider %.0f%% -> %.0f%%", fromFraction * 100, toFraction * 100));
                 if (done != null) handler.postDelayed(done, SETTLE_MS);
@@ -361,6 +394,16 @@ public class SplitHelperService extends AccessibilityService {
                 Spike.log("helper: the divider drag was cancelled");
                 if (done != null) handler.postDelayed(done, SETTLE_MS);
             }
+        };
+        boolean sent = dispatchGesture(new GestureDescription.Builder().addStroke(move).build(), new GestureResultCallback() {
+            @Override public void onCompleted(GestureDescription d) {
+                Path hold = new Path();
+                hold.moveTo(g[2], g[3]);
+                hold.lineTo(g[2] + 0.5f, g[3]);
+                boolean held = dispatchGesture(new GestureDescription.Builder().addStroke(move.continueStroke(hold, 0, 350, false)).build(), finished, null);
+                if (!held) finished.onCompleted(d);
+            }
+            @Override public void onCancelled(GestureDescription d) { finished.onCancelled(d); }
         }, null);
         if (!sent) { Spike.log("helper: the unit refused the divider gesture"); if (done != null) done.run(); }
     }
