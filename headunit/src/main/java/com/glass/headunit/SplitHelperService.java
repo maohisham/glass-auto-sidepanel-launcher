@@ -214,7 +214,7 @@ public class SplitHelperService extends AccessibilityService {
                     && SplitPlan.outOfSync(d.exactCenterX(), p.left, p.right, screen.width(), p.centerX() > d.exactCenterX())) {
                 // the unit drew the divider here but sized the panel's window for another split (black beside the panel):
                 // a small drag away and back makes it size both sides again
-                float nudge = now + (now < 0.5f ? 0.02f : -0.02f);   // a small drag: the unit snaps it back to where it was
+                float nudge = now + (target >= now ? 0.02f : -0.02f);   // a small drag towards the setting; the unit snaps it
                 Spike.log(String.format(java.util.Locale.US, "helper: the panel's window (%d-%d px) doesn't meet the divider at %.0f px; nudging it so the unit sizes the panel again",
                         p.left, p.right, d.exactCenterX()));
                 // no second drag afterwards: until the unit settles, the divider's reported place can be the stale one

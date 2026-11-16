@@ -118,8 +118,9 @@ final class PanelView extends LinearLayout {
 
     /** Rebuilds only when something that changes the views changed. */
     void setStyle(PanelMode m, int textSize, int lyricsSize, boolean dark) {
-        int widthDp = getResources().getConfiguration().screenWidthDp;   // the top row's fit depends on it
-        if (m == mode && textSize == this.textSize && lyricsSize == this.lyricsSize && dark == this.dark && widthDp == builtWidthDp) return;
+        // a new width only matters when it moves the speed and Score chip to or from their own row
+        boolean ownRow = scoreEnabled && TopRowFit.secondRow(getResources().getConfiguration().screenWidthDp, builtIcons, m == PanelMode.COMPACT ? 12 : 20);
+        if (m == mode && textSize == this.textSize && lyricsSize == this.lyricsSize && dark == this.dark && ownRow == scoreOwnRow) return;
         this.mode = m;
         this.textSize = textSize;
         this.lyricsSize = lyricsSize;
@@ -212,11 +213,10 @@ final class PanelView extends LinearLayout {
         return lp;
     }
 
-    private int builtWidthDp = -1;
+    private int builtIcons;
     private boolean scoreOwnRow;
 
     private void build() {
-        builtWidthDp = getResources().getConfiguration().screenWidthDp;
         removeAllViews();
         lineViews.clear();
         shownLyrics = null;
@@ -251,11 +251,12 @@ final class PanelView extends LinearLayout {
         if (aa != null) topRow.addView(icon(Icon.CAR, "Android Auto", 44, IconView.Style.NORMAL, () -> openAndroidAuto(aa[0])), gapped(firstIcon ? 0 : 12));
         topRow.addView(new View(getContext()), new LayoutParams(0, 1, 1f));
         int icons = topRow.getChildCount() - 1;
+        builtIcons = icons;
         // a narrow split can't fit the speed and the Score chip beside all the shortcuts: they get a row of their own
         LinearLayout scoreRow = topRow;
         scoreOwnRow = scoreEnabled && TopRowFit.secondRow(getResources().getConfiguration().screenWidthDp, icons, mode == PanelMode.COMPACT ? 12 : 20);
         if (scoreOwnRow) {
-            topRow.setPadding(0, 0, 0, dp(2));
+            topRow.setPadding(0, 0, 0, dp(6));
             scoreRow = new LinearLayout(getContext());
             scoreRow.setOrientation(HORIZONTAL);
             scoreRow.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
