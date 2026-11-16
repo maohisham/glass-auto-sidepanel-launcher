@@ -106,6 +106,7 @@ final class DriveScreen extends LinearLayout {
         body.removeAllViews();
         addCarCard(ctx);
         if (card != null && live != null) card.setEstimate(live.estLPer100);
+        carStatus(ctx);
         body.addView(periodRow(live, sum), gap(12));
         body.addView(priceCard(), gap(12));
 
@@ -374,6 +375,18 @@ final class DriveScreen extends LinearLayout {
         lp.leftMargin = Glass.dp(getContext(), 8);
         r.addView(text(s, 14, false, PanelStyle.fg(dark)), lp);
         return r;
+    }
+
+    /** The odometer, service and road tax entered in Settings, as small cards with the most urgent line under them. */
+    private void carStatus(Context ctx) {
+        Mileage.State m = Settings.of(ctx).mileageState();
+        if (!CarCards.anything(m)) return;
+        Mileage.Status st = CarStatus.status(ctx);
+        body.addView(text("Car", 16, true, PanelStyle.fg(dark)), gap(16));
+        body.addView(tiles(CarCards.tiles(m, st)), gap(8));
+        String line = Mileage.cardLine(st);
+        int level = CarCards.level(st);
+        if (line != null) body.addView(text(line, 14, true, level == 2 ? 0xFFFF6655 : 0xFFFFCC44), gap(8));
     }
 
     /** The car card at the top, when a car is chosen in Settings; the picture is read again only when the car changes. */
