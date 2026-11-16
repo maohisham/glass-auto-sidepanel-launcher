@@ -23,6 +23,12 @@ without hunting in the map app. Google Maps' navigation notification, read since
 3. **The buttons** open the chosen map app beside the panel with a search near the car: "masjid" or "R&R". Google
    Maps by `geo:0,0?q=…`, Waze by `https://waze.com/ul?q=…`.
 
+## Changed after testing (user's call, 2026-11-16)
+
+Google Maps ignores a search sent to it while it navigates (tested on the Carlinkit: the route carries on, no results).
+So while navigating there are no buttons: the prayer line says "Asar before you arrive (4:40 PM)", and the break row says
+"☕ 2 h driving · time for a break" (a tap closes it). The buttons work when Maps isn't navigating.
+
 ## Non-goals
 
 - Turn-by-turn on the panel (Maps shows it). Anything when not driving. Parsing Waze until its lines are seen.

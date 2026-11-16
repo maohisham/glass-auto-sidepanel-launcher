@@ -235,17 +235,18 @@ public class PanelActivity extends Activity {
         java.util.TimeZone tz = java.util.TimeZone.getDefault();
         long began = DriveRecorder.drivingSince();
         Prayer.Data p = panel.prayer();
+        long eta = NavState.MAPS.eta(now);
         TripHelper.Line line = new TripHelper.Line(false, null);
         if (p != null && !p.nextName.isEmpty()) {
             java.util.Calendar c = java.util.Calendar.getInstance(tz);
             c.setTimeInMillis(now);
             int since = c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE) - Prayer.hhmm(p.currentTime);
             if (since < 0) since += 24 * 60;   // before Subuh the current prayer is last night's Isyak
-            line = TripHelper.masjid(began > 0, p.nextMs, since, NavState.MAPS.eta(now), now, tz);
+            line = TripHelper.masjid(began > 0, p.nextName, p.nextMs, since, eta, now, tz);
         }
         long slot = TripHelper.breakSlot(began, now, breakDismissed);
-        String brk = slot > 0 ? TripHelper.breakLine(began, now) : null;
-        panel.setTrip(line.arrive, line.button, brk);
+        String brk = slot > 0 ? TripHelper.breakLine(began, now, eta > 0) : null;
+        panel.setTrip(line.arrive, line.button, brk, eta > 0);
         String shown = (line.button ? "masjid" : "") + (line.arrive != null ? " " + line.arrive : "") + (brk != null ? " break" : "");
         if (!shown.equals(tripShown)) { tripShown = shown; Spike.log("trip: " + (shown.isEmpty() ? "nothing shown" : shown.trim())); }
     }
@@ -476,7 +477,11 @@ public class PanelActivity extends Activity {
             panel.showScore(DriveTrip.trip().calculate(System.currentTimeMillis()));
             panel.showData(demoPrayer(), demoWeather(), false, false);
             // --ez trip true: the trip helper as it looks on a long drive with a prayer before arrival
-            if (getIntent().getBooleanExtra("trip", false)) panel.setTrip("arrive 4:40 PM", true, "☕ 2 h driving · Find R&R");
+            // (--ez nav true: the same while Google Maps navigates: no buttons, only what is coming)
+            if (getIntent().getBooleanExtra("trip", false)) {
+                boolean nav = getIntent().getBooleanExtra("nav", false);
+                panel.setTrip(nav ? "Asar before you arrive (4:40 PM)" : null, !nav, nav ? "☕ 2 h driving · time for a break" : "☕ 2 h driving · Find R&R", nav);
+            }
             // --ez idle true shows the nothing-playing screen (the prayer table) instead of a song
             if (getIntent().getBooleanExtra("idle", false)) panel.showNowPlaying(NowPlaying.idle());
             else if (getIntent().getBooleanExtra("radio", false)) panel.showNowPlaying(demoRadio());   // --ez radio true: a station instead of a song

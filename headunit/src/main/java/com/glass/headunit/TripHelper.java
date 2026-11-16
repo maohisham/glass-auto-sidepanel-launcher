@@ -15,7 +15,10 @@ final class TripHelper {
 
     private TripHelper() { }
 
-    /** What the prayer line adds: the Find masjid button, and "arrive 4:40 PM" when the prayer starts before arrival. */
+    /**
+     * What the prayer line adds: the Find masjid button (only without navigation: Google Maps ignores a search sent to it
+     * while it navigates), or, while navigating, "Asar before you arrive (4:40 PM)" when the prayer starts before arrival.
+     */
     static final class Line {
         final boolean button;
         final String arrive;
@@ -27,12 +30,12 @@ final class TripHelper {
      * nextMs: when the next prayer starts; minsSinceCurrent: minutes since the current prayer started (-1 unknown);
      * etaMs: the arrival time from navigation, -1 without one.
      */
-    static Line masjid(boolean driving, long nextMs, int minsSinceCurrent, long etaMs, long now, TimeZone tz) {
+    static Line masjid(boolean driving, String nextName, long nextMs, int minsSinceCurrent, long etaMs, long now, TimeZone tz) {
         if (!driving) return new Line(false, null);
         boolean started = minsSinceCurrent >= 0 && minsSinceCurrent <= STARTED;
         if (etaMs > 0) {
             boolean before = nextMs > now && nextMs < etaMs;
-            return new Line(before || started, before ? "arrive " + clock(etaMs, tz) : null);
+            return new Line(false, before ? nextName + " before you arrive (" + clock(etaMs, tz) + ")" : null);
         }
         boolean soon = nextMs >= now && nextMs - now <= SOON;
         return new Line(started || soon, null);
@@ -48,7 +51,10 @@ final class TripHelper {
         return slot;
     }
 
-    static String breakLine(long beganAt, long now) { return "☕ " + (now - beganAt) / HOUR + " h driving · Find R&R"; }
+    /** While navigating the row only says it (a search would be ignored); otherwise it offers the R&R search. */
+    static String breakLine(long beganAt, long now, boolean navigating) {
+        return "☕ " + (now - beganAt) / HOUR + " h driving · " + (navigating ? "time for a break" : "Find R&R");
+    }
 
     /** A search near the car in the map app: Waze's link for Waze, a geo search for Google Maps and anything else. */
     static String searchUri(String mapPkg, String query) {

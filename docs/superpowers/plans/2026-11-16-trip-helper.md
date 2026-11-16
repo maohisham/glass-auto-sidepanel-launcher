@@ -20,6 +20,7 @@ epoch ms, the next such clock time from 1 hour before now; -1 when absent. Tests
 - `static long breakSlot(long beganAt, long now, long dismissedSlot)` → the slot start (2 h, 3 h … after beganAt) when
   the row shows (first 10 min of a slot, not dismissed), else -1; `static String breakLine(long beganAt, long now)`.
 - `static String searchUri(String mapPkg, String query)`.
+### Ruling (2026-11-16, user): while Maps navigates it ignores searches sent to it, so no buttons then: the line says "Asar before you arrive (4:40 PM)" and the break row "time for a break" (tap closes it).
 ### Task 3: wiring — MediaListener keeps NavState (eta, updatedAt; cleared on removal); DriveRecorder.drivingSince();
 PanelActivity every 5 s computes and calls `panel.setTrip(arrive, masjid, breakLine)`; PanelView shows the chip and row;
 taps open the search beside the panel and dismiss the row.

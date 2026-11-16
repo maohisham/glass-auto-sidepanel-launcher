@@ -13,25 +13,26 @@ public class TripHelperTest {
 
     // ---- masjid ----
     @Test public void notDrivingNothing() {
-        TripHelper.Line l = TripHelper.masjid(false, at(16, 23), 200, -1, at(16, 10), KL);
+        TripHelper.Line l = TripHelper.masjid(false, "Asar", at(16, 23), 200, -1, at(16, 10), KL);
         assertFalse(l.button); assertNull(l.arrive);
     }
     @Test public void prayerBeforeArrival() {
-        TripHelper.Line l = TripHelper.masjid(true, at(16, 23), 200, at(16, 40), at(15, 30), KL);
-        assertTrue(l.button); assertEquals("arrive 4:40 PM", l.arrive);
+        TripHelper.Line l = TripHelper.masjid(true, "Asar", at(16, 23), 200, at(16, 40), at(15, 30), KL);
+        assertFalse(l.button);   // Maps ignores searches while navigating: say it, no button
+        assertEquals("Asar before you arrive (4:40 PM)", l.arrive);
     }
     @Test public void arrivingBeforeThePrayer() {
-        TripHelper.Line l = TripHelper.masjid(true, at(16, 23), 200, at(16, 0), at(15, 30), KL);
+        TripHelper.Line l = TripHelper.masjid(true, "Asar", at(16, 23), 200, at(16, 0), at(15, 30), KL);
         assertFalse(l.button); assertNull(l.arrive);
     }
     @Test public void withoutEtaWithinTwentyMinutes() {
-        assertTrue(TripHelper.masjid(true, at(16, 23), 200, -1, at(16, 3), KL).button);
-        assertFalse(TripHelper.masjid(true, at(16, 23), 200, -1, at(16, 2), KL).button);
+        assertTrue(TripHelper.masjid(true, "Asar", at(16, 23), 200, -1, at(16, 3), KL).button);
+        assertFalse(TripHelper.masjid(true, "Asar", at(16, 23), 200, -1, at(16, 2), KL).button);
     }
     @Test public void startedWithinThirtyMinutes() {
-        assertTrue(TripHelper.masjid(true, at(18, 59), 30, -1, at(16, 53), KL).button);
-        assertFalse(TripHelper.masjid(true, at(18, 59), 31, -1, at(16, 54), KL).button);
-        assertTrue(TripHelper.masjid(true, at(18, 59), 10, at(17, 0), at(16, 33), KL).button);   // navigating, Asar just began
+        assertTrue(TripHelper.masjid(true, "Asar", at(18, 59), 30, -1, at(16, 53), KL).button);
+        assertFalse(TripHelper.masjid(true, "Asar", at(18, 59), 31, -1, at(16, 54), KL).button);
+        assertFalse(TripHelper.masjid(true, "Asar", at(18, 59), 10, at(17, 0), at(16, 33), KL).button);   // navigating: no button
     }
 
     // ---- breaks ----
@@ -46,7 +47,11 @@ public class TripHelperTest {
         assertEquals(at(11, 0), TripHelper.breakSlot(at(8, 0), at(11, 2), at(10, 0)));
     }
     @Test public void notDriving() { assertEquals(-1, TripHelper.breakSlot(-1, at(11, 0), -1)); }
-    @Test public void breakText() { assertEquals("☕ 2 h driving · Find R&R", TripHelper.breakLine(at(8, 0), at(10, 3))); assertEquals("☕ 3 h driving · Find R&R", TripHelper.breakLine(at(8, 0), at(11, 1))); }
+    @Test public void breakText() {
+        assertEquals("☕ 2 h driving · Find R&R", TripHelper.breakLine(at(8, 0), at(10, 3), false));
+        assertEquals("☕ 3 h driving · Find R&R", TripHelper.breakLine(at(8, 0), at(11, 1), false));
+        assertEquals("☕ 2 h driving · time for a break", TripHelper.breakLine(at(8, 0), at(10, 3), true));
+    }
 
     // ---- searches ----
     @Test public void searches() {

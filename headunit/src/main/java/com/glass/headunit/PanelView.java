@@ -226,7 +226,7 @@ final class PanelView extends LinearLayout {
     private LinearLayout tripLine;
     private TextView arriveText, masjidChip, breakRow;
     private String tripArrive, tripBreak;
-    private boolean tripMasjid;
+    private boolean tripMasjid, tripNavigating;
     private java.util.function.Consumer<String> onSearch;
     private Runnable onBreakDismissed;
 
@@ -234,7 +234,8 @@ final class PanelView extends LinearLayout {
     void setOnSearch(java.util.function.Consumer<String> search, Runnable breakDismissed) { onSearch = search; onBreakDismissed = breakDismissed; }
 
     /** What the trip helper shows: "arrive …" and Find masjid under the prayer line, and the break row; nulls hide them. */
-    void setTrip(String arrive, boolean masjid, String breakLine) {
+    void setTrip(String arrive, boolean masjid, String breakLine, boolean navigating) {
+        tripNavigating = navigating;   // the break row then only closes on a tap: a search would be ignored
         if (java.util.Objects.equals(arrive, tripArrive) && masjid == tripMasjid && java.util.Objects.equals(breakLine, tripBreak)) return;
         tripArrive = arrive;
         tripMasjid = masjid;
@@ -448,7 +449,7 @@ final class PanelView extends LinearLayout {
         breakRow.setClickable(true);
         breakRow.setContentDescription("Find an R&R nearby in the map app");
         breakRow.setOnClickListener(v -> {
-            if (onSearch != null) onSearch.accept("R&R");
+            if (onSearch != null && !tripNavigating) onSearch.accept("R&R");
             if (onBreakDismissed != null) onBreakDismissed.run();
         });
         if (inStrip) {
