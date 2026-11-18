@@ -121,19 +121,33 @@ template:
         unique_id: glass_panel_myvi_last_drive
         icon: mdi:steering
         unit_of_measurement: "points"
+        # while the car drives this shows the unit's running score (final: false); car_stopped makes it final
         state: >
           {% set m = trigger.event.data.msg if trigger.platform == 'event' else {} %}
-          {{ m.drive.score if m.type == 'car_stopped' else this.state }}
+          {% if m.type == 'car_stopped' %}{{ m.drive.score }}
+          {% elif m.type == 'position' and m.score is defined %}{{ m.score }}
+          {% else %}{{ this.state }}{% endif %}
         attributes:
+          final: >
+            {% set m = trigger.event.data.msg if trigger.platform == 'event' else {} %}
+            {% if m.type == 'car_stopped' %}true
+            {% elif m.type == 'position' and m.score is defined %}false
+            {% else %}{{ this.attributes.get('final', true) }}{% endif %}
           km: >
             {% set m = trigger.event.data.msg if trigger.platform == 'event' else {} %}
-            {{ m.drive.km if m.type == 'car_stopped' else this.attributes.get('km') }}
+            {% if m.type == 'car_stopped' %}{{ m.drive.km }}
+            {% elif m.type == 'position' and m.score is defined %}{{ m.trip_km }}
+            {% else %}{{ this.attributes.get('km') }}{% endif %}
           minutes: >
             {% set m = trigger.event.data.msg if trigger.platform == 'event' else {} %}
-            {{ m.drive.minutes if m.type == 'car_stopped' else this.attributes.get('minutes') }}
+            {% if m.type == 'car_stopped' %}{{ m.drive.minutes }}
+            {% elif m.type == 'position' and m.score is defined %}{{ m.trip_min }}
+            {% else %}{{ this.attributes.get('minutes') }}{% endif %}
           cost_rm: >
             {% set m = trigger.event.data.msg if trigger.platform == 'event' else {} %}
-            {{ m.drive.get('cost_rm') if m.type == 'car_stopped' else this.attributes.get('cost_rm') }}
+            {% if m.type == 'car_stopped' %}{{ m.drive.get('cost_rm') }}
+            {% elif m.type == 'position' and m.score is defined %}{{ m.get('cost_rm') }}
+            {% else %}{{ this.attributes.get('cost_rm') }}{% endif %}
           ended: >
             {% set m = trigger.event.data.msg if trigger.platform == 'event' else {} %}
             {{ m.time if m.type == 'car_stopped' else this.attributes.get('ended') }}
@@ -379,10 +393,12 @@ Every message carries:
 
 Messages saved while there was no signal arrive later, with their original time.
 
+The unit's own score therefore reaches Home Assistant every minute during a drive, not only in the final `car_stopped`. A `position`'s `score`, `fuel_l` and `cost_rm` are running totals: use them to show the live score, and take the drive's final numbers (and add its `cost_rm` to the weekly cost) only from `car_stopped`.
+
 | `type` | When | Fields |
 |---|---|---|
 | `car_started` | Each car start | `lat`, `lon` (left out without a GPS fix) |
-| `position` | Every minute while moving | `lat`, `lon`, `speed_kmh`, `heading` (0–359), `accuracy_m`, `trip_km`, `trip_min` |
+| `position` | Every minute while moving | `lat`, `lon`, `speed_kmh`, `heading` (0–359), `accuracy_m`, `trip_km`, `trip_min`. While a drive is being scored, also its running totals so far, worked out the same way as in `car_stopped`: `score` (0–100), `grade`, `avg_kmh`, `max_kmh`, `idle_min`, and with a car chosen in Settings and a fuel price, `fuel_l` and `cost_rm`. They are left out when there is no drive to score. The score is rough in the first minutes of a drive. |
 | `car_stopped` | Once per drive, when it really ends: 10 min still, or at once when the unit goes to sleep or off with the car stopped. `time` is when the car stopped, and stays the same on every retry | `lat`, `lon`, and `drive`: `km`, `minutes`, `score` (0–100), `grade`, `avg_kmh`, `max_kmh`, `idle_min`. With a car chosen in Settings, also `fuel_l` and `cost_rm`; after the weekly prices are fetched, also `cost_without_rm` and `saved_rm`. |
 | `car_status` | After each drive, and when the mileage details change | `odometer_km` (estimated), `service`: `last_date`, `last_km`, `next_date`, `next_km`, `km_left`, `days_left`, `due_estimate`, and `road_tax`: `renew_date`, `days_left`. Anything not entered is left out. |
 | `reminder` | When the service is within 500 km, or past it (once each) | `what` (`service`), `level` (`soon` or `overdue`), `km_left`, `text` |

@@ -41,7 +41,12 @@ final class HaMessage {
         return j;
     }
 
-    static JSONObject position(String car, long time, double lat, double lon, float kmh, float heading, float accuracy, float tripKm, long tripMin) {
+    /**
+     * A position while driving. With the drive's totals so far (null when no trip is active) it also carries the running
+     * score, grade, speeds, idle time and, where known, fuel and cost: the same numbers, rounding and rules as the summary.
+     */
+    static JSONObject position(String car, long time, double lat, double lon, float kmh, float heading, float accuracy, float tripKm, long tripMin,
+                               DriveStats.Drive soFar, double budi95, double ron95) {
         JSONObject j = base("position", car, time);
         putPosition(j, lat, lon);
         put(j, "speed_kmh", Math.round(kmh));
@@ -49,7 +54,25 @@ final class HaMessage {
         put(j, "accuracy_m", Math.round(accuracy));
         put(j, "trip_km", round(tripKm, 1));
         put(j, "trip_min", tripMin);
+        if (soFar != null) putTotals(j, soFar, budi95);
         return j;
+    }
+
+    /**
+     * What a drive scored and used, under the names Home Assistant knows: in the summary's "drive" object, and on a position
+     * while the drive is still going. The fuel fields only with a fuel estimate and a price.
+     */
+    private static void putTotals(JSONObject o, DriveStats.Drive d, double budi95) {
+        put(o, "score", d.score);
+        String grade = EcoScore.grade(d.score);
+        put(o, "grade", grade.equals("Very Poor") ? "Poor" : grade);   // the field reference has four grades
+        put(o, "avg_kmh", Math.round(d.avgKmh));
+        put(o, "max_kmh", Math.round(d.maxKmh));
+        put(o, "idle_min", Math.round(d.idleSec / 60.0));
+        if (d.fuelL > 0 && budi95 > 0) {
+            put(o, "fuel_l", round(d.fuelL, 1));
+            put(o, "cost_rm", round(FuelPrice.tenSen(d.fuelL * budi95), 2));
+        }
     }
 
     /** The drive's results; the fuel fields only with a fuel estimate, the "without" ones only once prices are known. */
@@ -59,21 +82,11 @@ final class HaMessage {
         JSONObject dr = new JSONObject();
         put(dr, "km", round(d.km, 1));
         put(dr, "minutes", Math.round(d.sec / 60.0));
-        put(dr, "score", d.score);
-        String grade = EcoScore.grade(d.score);
-        put(dr, "grade", grade.equals("Very Poor") ? "Poor" : grade);   // the field reference has four grades
-        put(dr, "avg_kmh", Math.round(d.avgKmh));
-        put(dr, "max_kmh", Math.round(d.maxKmh));
-        put(dr, "idle_min", Math.round(d.idleSec / 60.0));
-        if (d.fuelL > 0 && budi95 > 0) {
-            put(dr, "fuel_l", round(d.fuelL, 1));
-            double with = FuelPrice.tenSen(d.fuelL * budi95);
-            put(dr, "cost_rm", round(with, 2));
-            if (ron95 > budi95) {
-                double without = FuelPrice.tenSen(d.fuelL * ron95);
-                put(dr, "cost_without_rm", round(without, 2));
-                put(dr, "saved_rm", round(without - with, 2));
-            }
+        putTotals(dr, d, budi95);
+        if (d.fuelL > 0 && budi95 > 0 && ron95 > budi95) {
+            double with = FuelPrice.tenSen(d.fuelL * budi95), without = FuelPrice.tenSen(d.fuelL * ron95);
+            put(dr, "cost_without_rm", round(without, 2));
+            put(dr, "saved_rm", round(without - with, 2));
         }
         put(j, "drive", dr);
         return j;

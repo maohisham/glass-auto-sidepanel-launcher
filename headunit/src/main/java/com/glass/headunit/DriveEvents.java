@@ -21,8 +21,11 @@ final class DriveEvents {
             case POSITION: {
                 EcoScore trip = DriveTrip.trip();
                 EcoScore.Stats st = trip.isTripActive() ? trip.calculate(e.time) : null;
+                double[] price = s.fuelPrices();
+                // the same totals the summary is made from, so Home Assistant has the unit's own score before the car stops
                 h.enqueue(HaMessage.position(car, e.time, e.lat, e.lon, e.kmh, e.heading, accuracy,
-                        st == null ? 0f : st.distanceKm, st == null ? 0 : st.durationSec / 60));
+                        st == null ? 0f : st.distanceKm, st == null ? 0 : st.durationSec / 60,
+                        st == null ? null : DriveStats.Drive.of(st, trip.tripStartMs(), e.time), price[0], price[1]));
                 break;
             }
             default:

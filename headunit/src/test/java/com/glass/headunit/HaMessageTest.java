@@ -28,9 +28,42 @@ public class HaMessageTest {
     @Test public void isoTimeWithOffset() { assertEquals("2025-11-15T08:00:00+08:00", HaMessage.isoTime(1763164800000L, TimeZone.getTimeZone("Asia/Kuala_Lumpur"))); }
     @Test public void startedWithoutFixHasNoPosition() throws Exception { JSONObject j = HaMessage.started("c", 0, null, null); assertEquals("car_started", j.getString("type")); assertFalse(j.has("lat")); }
     @Test public void position() throws Exception {
-        JSONObject j = HaMessage.position("c", 0, 2.96123456, 101.78, 72.4f, 315.6f, 8.2f, 6.44f, 9);
+        JSONObject j = HaMessage.position("c", 0, 2.96123456, 101.78, 72.4f, 315.6f, 8.2f, 6.44f, 9, null, 0, 0);
         assertEquals(2.961235, j.getDouble("lat"), 1e-9); assertEquals(72, j.getInt("speed_kmh")); assertEquals(316, j.getInt("heading")); assertEquals(8, j.getInt("accuracy_m")); assertEquals(6.4, j.getDouble("trip_km"), 1e-9); assertEquals(9, j.getInt("trip_min"));
     }
+    private static DriveStats.Drive running() {
+        DriveStats.Drive d = new DriveStats.Drive(); d.km = 6.44f; d.sec = 9 * 60 + 20; d.score = 82; d.avgKmh = 41.2f; d.maxKmh = 108.4f; d.idleSec = 240; d.fuelL = 1.55f;
+        return d;
+    }
+
+    @Test public void positionCarriesTheRunningTotals() throws Exception {
+        JSONObject j = HaMessage.position("myvi", 0, 2.96, 101.78, 72.4f, 315.6f, 8.2f, 6.44f, 9, running(), 1.99, 3.87);
+        assertEquals(82, j.getInt("score")); assertEquals("Good", j.getString("grade")); assertEquals(41, j.getInt("avg_kmh")); assertEquals(108, j.getInt("max_kmh"));
+        assertEquals(4, j.getInt("idle_min")); assertEquals(1.6, j.getDouble("fuel_l"), 1e-9); assertEquals(3.10, j.getDouble("cost_rm"), 1e-9);
+        assertFalse(j.has("cost_without_rm")); assertFalse(j.has("saved_rm"));   // those are the final summary's
+        // nothing that was there is gone or renamed
+        assertEquals("position", j.getString("type")); assertEquals("myvi", j.getString("car")); assertTrue(j.has("time")); assertEquals(2.96, j.getDouble("lat"), 1e-9); assertEquals(101.78, j.getDouble("lon"), 1e-9);
+        assertEquals(72, j.getInt("speed_kmh")); assertEquals(316, j.getInt("heading")); assertEquals(8, j.getInt("accuracy_m")); assertEquals(6.4, j.getDouble("trip_km"), 1e-9); assertEquals(9, j.getInt("trip_min"));
+    }
+    @Test public void positionWithoutATripHasNoTotals() throws Exception {
+        JSONObject j = HaMessage.position("c", 0, 2.96, 101.78, 0f, 0f, 8f, 0f, 0, null, 1.99, 3.87);
+        for (String k : new String[]{"score", "grade", "avg_kmh", "max_kmh", "idle_min", "fuel_l", "cost_rm"}) assertFalse(k, j.has(k));
+        assertTrue(j.has("trip_km")); assertTrue(j.has("trip_min"));
+    }
+    @Test public void positionGradeIsOneOfFour() throws Exception { DriveStats.Drive d = running(); d.score = 10; assertEquals("Poor", HaMessage.position("c", 0, 0, 0, 0, 0, 0, 1f, 1, d, 1.99, 3.87).getString("grade")); }
+    @Test public void positionFuelAndCostFollowTheSameRulesAsStopped() throws Exception {
+        DriveStats.Drive noFuel = running(); noFuel.fuelL = 0;
+        JSONObject a = HaMessage.position("c", 0, 0, 0, 0, 0, 0, 1f, 1, noFuel, 1.99, 3.87);
+        assertFalse(a.has("fuel_l")); assertFalse(a.has("cost_rm")); assertTrue(a.has("score"));
+        JSONObject b = HaMessage.position("c", 0, 0, 0, 0, 0, 0, 1f, 1, running(), 0, 0);   // no price known yet
+        assertFalse(b.has("fuel_l")); assertFalse(b.has("cost_rm"));
+    }
+    @Test public void positionTotalsAreExactlyWhatTheSummaryWouldSayForTheSameDrive() throws Exception {
+        DriveStats.Drive d = running();
+        JSONObject p = HaMessage.position("c", 0, 0, 0, 0, 0, 0, d.km, 9, d, 1.99, 3.87), dr = HaMessage.stopped("c", 0, 0, 0, d, 1.99, 3.87).getJSONObject("drive");
+        for (String k : new String[]{"score", "grade", "avg_kmh", "max_kmh", "idle_min", "fuel_l", "cost_rm"}) assertEquals(k, dr.get(k).toString(), p.get(k).toString());
+    }
+
     @Test public void reminderTestAndNowPlaying() throws Exception {
         JSONObject r = HaMessage.reminder("myvi", 0, "soon", 450, "Myvi: service due in ≈ 450 km");
         assertEquals("service", r.getString("what")); assertEquals("soon", r.getString("level")); assertEquals(450, r.getInt("km_left"));
