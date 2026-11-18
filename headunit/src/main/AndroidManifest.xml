@@ -10,6 +10,8 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- keeps the unit awake for up to two minutes after a drive ends, so the summary reaches Home Assistant before it sleeps -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- the drive recorder keeps following the GPS behind other apps, with a notification -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />

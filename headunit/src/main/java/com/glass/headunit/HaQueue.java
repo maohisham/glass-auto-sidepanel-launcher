@@ -17,18 +17,18 @@ final class HaQueue {
 
     /** One queued message, parsed once: its line as saved, when it was queued, its type and the text to send. */
     private static final class Entry {
-        final String line, type, send;
+        final String line, type, time, send;
         final long at;
 
-        Entry(String line, long at, String type, String send) { this.line = line; this.at = at; this.type = type; this.send = send; }
+        Entry(String line, long at, String type, String time, String send) { this.line = line; this.at = at; this.type = type; this.time = time; this.send = send; }
 
         static Entry of(String line) {
             try {
                 JSONObject o = new JSONObject(line);
                 long at = o.optLong(STAMP);
-                String type = o.optString("type");
+                String type = o.optString("type"), time = o.optString("time");
                 o.remove(STAMP);
-                return new Entry(line, at, type, o.toString());
+                return new Entry(line, at, type, time, o.toString());
             } catch (Exception e) {
                 return null;
             }
@@ -50,6 +50,13 @@ final class HaQueue {
 
     /** The oldest message as it is sent (without the queue's own stamp), or null when empty. */
     String peek() { return entries.isEmpty() ? null : entries.peekFirst().send; }
+
+    /** The first message's type, its own "time" (what Home Assistant de-duplicates on) and when it was queued, for the log. */
+    String peekType() { return entries.isEmpty() ? null : entries.peekFirst().type; }
+
+    String peekTime() { return entries.isEmpty() ? null : entries.peekFirst().time; }
+
+    long peekQueuedAt() { return entries.isEmpty() ? 0 : entries.peekFirst().at; }
 
     void removeFirst() { entries.pollFirst(); }
 

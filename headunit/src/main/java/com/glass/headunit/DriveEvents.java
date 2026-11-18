@@ -30,6 +30,11 @@ final class DriveEvents {
         }
     }
 
+    /** Tries the messages waiting for Home Assistant now (the unit woke up, or the app started). */
+    static void sendWaiting(Context c) {
+        if (Settings.of(c).haOn()) HaSender.get(c).kick();
+    }
+
     /** The drive ended: its own totals (or none, when nothing is known of it) and the car's mileage go out. */
     static void ended(Context c, DriveSession.Event e, DriveStats.Drive d) {
         Settings s = Settings.of(c);

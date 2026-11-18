@@ -383,7 +383,7 @@ Messages saved while there was no signal arrive later, with their original time.
 |---|---|---|
 | `car_started` | Each car start | `lat`, `lon` (left out without a GPS fix) |
 | `position` | Every minute while moving | `lat`, `lon`, `speed_kmh`, `heading` (0–359), `accuracy_m`, `trip_km`, `trip_min` |
-| `car_stopped` | Once per drive, when it really ends (10 min still, or 10 min asleep) | `lat`, `lon`, and `drive`: `km`, `minutes`, `score` (0–100), `grade`, `avg_kmh`, `max_kmh`, `idle_min`. With a car chosen in Settings, also `fuel_l` and `cost_rm`; after the weekly prices are fetched, also `cost_without_rm` and `saved_rm`. |
+| `car_stopped` | Once per drive, when it really ends: 10 min still, or at once when the unit goes to sleep or off with the car stopped. `time` is when the car stopped, and stays the same on every retry | `lat`, `lon`, and `drive`: `km`, `minutes`, `score` (0–100), `grade`, `avg_kmh`, `max_kmh`, `idle_min`. With a car chosen in Settings, also `fuel_l` and `cost_rm`; after the weekly prices are fetched, also `cost_without_rm` and `saved_rm`. |
 | `car_status` | After each drive, and when the mileage details change | `odometer_km` (estimated), `service`: `last_date`, `last_km`, `next_date`, `next_km`, `km_left`, `days_left`, `due_estimate`, and `road_tax`: `renew_date`, `days_left`. Anything not entered is left out. |
 | `reminder` | When the service is within 500 km, or past it (once each) | `what` (`service`), `level` (`soon` or `overdue`), `km_left`, `text` |
 | `now_playing` | When the song changes, only if switched on | `title`, `artist`, `player` |

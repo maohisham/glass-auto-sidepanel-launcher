@@ -13,6 +13,7 @@ import android.os.IBinder;
 import android.os.Looper;
 
 import java.util.List;
+import java.util.TimeZone;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
@@ -146,7 +147,7 @@ public class DriveRecorder extends Service {
                 EcoScore trip = DriveTrip.trip();
                 DriveStats.Drive d = trip.isTripActive() ? DriveStats.Drive.of(trip.calculate(e.time), trip.tripStartMs(), e.time) : null;
                 DriveLog.save(this, trip, e.time);   // as it was when the car stopped
-                Spike.log("recorder: drive ended" + (d == null ? "" : String.format(java.util.Locale.US, " (%.1f km)", d.km)));
+                logEnded(e, d, session.endedBy());
                 DriveEvents.ended(this, e, d);
                 trip.reset();   // the next drive is a new trip
             } else {
@@ -154,6 +155,15 @@ public class DriveRecorder extends Service {
             }
         }
         if (!events.isEmpty()) save();
+    }
+
+    /** One line for each drive judged over: when the car really stopped, when that was decided, and why (the gap is how late). */
+    private static void logEnded(DriveSession.Event e, DriveStats.Drive d, String why) {
+        long now = System.currentTimeMillis();
+        TimeZone tz = TimeZone.getDefault();
+        Spike.log("recorder: drive judged over at " + HaMessage.isoTime(now, tz) + ", the car stopped at " + HaMessage.isoTime(e.time, tz)
+                + " (" + (now - e.time) / 1000 + " s earlier), because " + why
+                + (d == null ? ", no trip totals" : String.format(java.util.Locale.US, ", %.1f km, score %d", d.km, d.score)));
     }
 
     private void save() {
@@ -169,8 +179,41 @@ public class DriveRecorder extends Service {
 
     static void onSleep(Context c) {
         DriveRecorder r = instance;
-        if (r != null) { r.session.onSleep(System.currentTimeMillis()); r.save(); }
+        if (r == null || r.session == null) return;
+        r.session.onSleep(System.currentTimeMillis());
+        r.goingAway("the screen went off");
+        r.save();
     }
+
+    /** The unit is shutting down (the engine is off): the drive ends now if the car has stopped. */
+    static void onShutdown(Context c) {
+        DriveRecorder r = instance;
+        if (r == null || r.session == null) return;
+        r.goingAway("the unit is shutting down");
+        r.save();
+    }
+
+    /**
+     * The unit is about to sleep or switch off, and may not run again for hours. A car that has stopped is judged over
+     * now, so its summary is sent before that. A car that stopped only seconds ago gets one more look in a moment, with
+     * the unit kept awake for it; a car still moving (the display-off button) is left alone.
+     */
+    private void goingAway(String why) {
+        if (!session.driving()) return;
+        Spike.log("recorder: " + why + " while driving, checking whether the car has stopped");
+        List<DriveSession.Event> ev = session.onGoingAway(System.currentTimeMillis());
+        if (!ev.isEmpty()) { handle(ev); return; }
+        Awake.hold(this, "recorder-settle", DriveSession.SETTLED_MS + 10_000L);
+        handler.postDelayed(settleCheck, DriveSession.SETTLED_MS + 2_000L);
+    }
+
+    private final Runnable settleCheck = new Runnable() {
+        @Override public void run() {
+            if (session == null || !session.driving() || !session.asleep()) return;   // moving, awake again, or already closed
+            handle(session.onGoingAway(System.currentTimeMillis()));
+            save();
+        }
+    };
 
     static void onWake(Context c) {
         DriveRecorder r = instance;
@@ -206,6 +249,7 @@ public class DriveRecorder extends Service {
         handler.removeCallbacksAndMessages(null);
         if (gps != null) gps.stop();
         releaseVolume(this, "the drive recording stopped");
+        if (session != null && route != null && session.driving()) handle(session.onGoingAway(System.currentTimeMillis()));   // the app is going away: a parked car's summary goes out now
         if (session != null) save();
         instance = null;
         super.onDestroy();

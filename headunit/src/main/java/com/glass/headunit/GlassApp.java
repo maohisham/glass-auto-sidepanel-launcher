@@ -37,6 +37,7 @@ public class GlassApp extends Application {
         });
         AutoPlay.watchScreen(this);
         if (android.os.SystemClock.elapsedRealtime() < 3 * 60_000L) { StartSummary.arm("boot"); DriveRecorder.newDrive(this); DriveRecorder.recoverAfterBoot(this); }
+        DriveEvents.sendWaiting(this);   // a summary saved before the unit went off goes as soon as the app is up
         Spike.log("process started");
         logLastExit();
     }

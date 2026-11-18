@@ -26,14 +26,22 @@ final class AutoPlay {
     static void watchScreen(Context ctx) {
         android.content.IntentFilter f = new android.content.IntentFilter(android.content.Intent.ACTION_SCREEN_OFF);
         f.addAction(android.content.Intent.ACTION_SCREEN_ON);
+        f.addAction(android.content.Intent.ACTION_SHUTDOWN);
+        f.addAction("android.intent.action.QUICKBOOT_POWEROFF");   // units that power off without the usual broadcast
         ctx.getApplicationContext().registerReceiver(new android.content.BroadcastReceiver() {
             @Override public void onReceive(Context c, android.content.Intent i) {
                 long now = SystemClock.elapsedRealtime();
+                if (android.content.Intent.ACTION_SHUTDOWN.equals(i.getAction()) || "android.intent.action.QUICKBOOT_POWEROFF".equals(i.getAction())) {
+                    Spike.log("power off: " + i.getAction());
+                    DriveRecorder.onShutdown(c);
+                    return;
+                }
                 if (android.content.Intent.ACTION_SCREEN_OFF.equals(i.getAction())) { screenOffAt = now; DriveRecorder.onSleep(c); return; }
                 boolean wake = AutoPlayPolicy.isWake(screenOffAt, now);
                 Spike.log("screen on" + (screenOffAt > 0 ? " after " + (now - screenOffAt) / 1000 + " s off" : "") + (wake ? ": a wake from sleep" : ""));
                 screenOffAt = 0;
                 DriveRecorder.onWake(c);   // a sleep of 10 minutes or more ends the drive
+                DriveEvents.sendWaiting(c);   // anything saved while the unit slept goes now, not at the next backoff
                 if (wake) { rearm(c, "the unit woke from sleep"); StartSummary.arm("wake"); DriveRecorder.newDrive(c); }
             }
         }, f);

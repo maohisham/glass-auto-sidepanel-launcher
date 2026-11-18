@@ -5,11 +5,17 @@ final class HaRules {
 
     private static final long[] BACKOFF = {15_000L, 30_000L, 60_000L, 120_000L, 300_000L};
 
+    /** How long a refusal waits before the next try: long, but never for good (a proxy can answer 404 while Home Assistant restarts). */
+    static final long REFUSED_RETRY_MS = 900_000L;
+
     private HaRules() { }
+
+    /** When to try again after a failed send: a refusal waits long, anything else follows the backoff. */
+    static long retryDelayMs(int code, int attempt) { return stopOn(code) ? REFUSED_RETRY_MS : backoffMs(attempt); }
 
     static long backoffMs(int attempt) { return BACKOFF[Math.max(0, Math.min(attempt, BACKOFF.length - 1))]; }
 
-    /** A refusal that a retry won't fix (a wrong address, no access): stop until the settings change. */
+    /** A refusal that a retry usually won't fix (a wrong address, no access): shown to the user and retried only slowly. */
     static boolean stopOn(int code) { return code >= 400 && code < 500 && code != 408 && code != 429; }
 
     static boolean validUrl(String url) {
