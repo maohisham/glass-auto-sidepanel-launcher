@@ -151,6 +151,22 @@ template:
           ended: >
             {% set m = trigger.event.data.msg if trigger.platform == 'event' else {} %}
             {{ m.time if m.type == 'car_stopped' else this.attributes.get('ended') }}
+          # why the score is what it is, and how the car used fuel: zone, smooth, efficiency, idle and bonus (each 0-100)
+          l_per_100km: >
+            {% set m = trigger.event.data.msg if trigger.platform == 'event' else {} %}
+            {% if m.type == 'car_stopped' %}{{ m.drive.get('l_per_100km') }}
+            {% elif m.type == 'position' and m.score is defined %}{{ m.get('l_per_100km') }}
+            {% else %}{{ this.attributes.get('l_per_100km') }}{% endif %}
+          speed_alerts: >
+            {% set m = trigger.event.data.msg if trigger.platform == 'event' else {} %}
+            {% if m.type == 'car_stopped' %}{{ m.drive.get('speed_alerts') }}
+            {% elif m.type == 'position' and m.score is defined %}{{ m.get('speed_alerts') }}
+            {% else %}{{ this.attributes.get('speed_alerts') }}{% endif %}
+          parts: >
+            {% set m = trigger.event.data.msg if trigger.platform == 'event' else {} %}
+            {% if m.type == 'car_stopped' %}{{ m.drive.get('parts') }}
+            {% elif m.type == 'position' and m.score is defined %}{{ m.get('parts') }}
+            {% else %}{{ this.attributes.get('parts') }}{% endif %}
 
       - name: "Myvi fuel cost this week"
         unique_id: glass_panel_myvi_fuel_week
@@ -210,6 +226,28 @@ template:
           renew_date: >
             {% set m = trigger.event.data.msg if trigger.platform == 'event' else {} %}
             {{ m.road_tax.renew_date if m.type == 'car_status' and m.road_tax is defined else this.attributes.get('renew_date') }}
+
+      # the unit itself, every 10 minutes while the app runs: the app version, and how many messages wait to be sent.
+      # If it stops arriving the unit is off or asleep (or on an older app), which is not the same as the car being parked.
+      - name: "Myvi unit"
+        unique_id: glass_panel_myvi_unit
+        icon: mdi:car-connected
+        state: >
+          {% set m = trigger.event.data.msg if trigger.platform == 'event' else {} %}
+          {{ m.app_version if m.type == 'unit_status' else this.state }}
+        attributes:
+          uptime_min: >
+            {% set m = trigger.event.data.msg if trigger.platform == 'event' else {} %}
+            {{ m.uptime_min if m.type == 'unit_status' else this.attributes.get('uptime_min') }}
+          queue_waiting: >
+            {% set m = trigger.event.data.msg if trigger.platform == 'event' else {} %}
+            {{ m.queue_waiting if m.type == 'unit_status' else this.attributes.get('queue_waiting') }}
+          gps_fix_age_s: >
+            {% set m = trigger.event.data.msg if trigger.platform == 'event' else {} %}
+            {{ m.get('gps_fix_age_s') if m.type == 'unit_status' else this.attributes.get('gps_fix_age_s') }}
+          last_seen: >
+            {% set m = trigger.event.data.msg if trigger.platform == 'event' else {} %}
+            {{ now().isoformat() if m.type == 'unit_status' else this.attributes.get('last_seen') }}
 ```
 
 ### Date reminders: service date, road tax and insurance
@@ -353,8 +391,21 @@ cards:
         **{{ states(d) }}** points · {{ state_attr(d, 'km') }} km ·
         {{ (mins // 60 ~ 'h ') if mins >= 60 else '' }}{{ mins % 60 }} min ·
         RM {{ state_attr(d, 'cost_rm') or '—' }}
+        {%- if state_attr(d, 'l_per_100km') %} · {{ state_attr(d, 'l_per_100km') }} L/100 km{% endif %}
+        {%- if state_attr(d, 'speed_alerts') %} · {{ state_attr(d, 'speed_alerts') }} speed alerts{% endif %}
 
         <small>{{ as_timestamp(state_attr(d, 'ended')) | timestamp_custom('%a %-d %b, %-I:%M %p') if state_attr(d, 'ended') else '' }}</small>
+    - type: markdown
+      content: |
+        {% set p = state_attr('sensor.myvi_last_drive', 'parts') %}
+        {% if p %}
+        | Why this score | |
+        |:--|--:|
+        | Speed zone | {{ p.zone }} |
+        | Smoothness | {{ p.smooth }} |
+        | Efficiency | {{ p.efficiency }} |
+        | Idling | {{ p.idle }} |
+        {% endif %}
     - type: custom:bubble-card
       card_type: separator
       name: Service and road tax
@@ -371,6 +422,7 @@ cards:
         | Estimated due | {{ state_attr(s, 'due_estimate') or '—' }} |
         | Last service | {{ state_attr(s, 'last_date') or '—' }} · {{ state_attr(s, 'last_km') or '—' }} km |
         | Road tax and insurance | {{ state_attr(r, 'renew_date') or '—' }} · {{ states(r) }} days |
+        | Unit | {{ 'app ' ~ states('sensor.myvi_unit') if states('sensor.myvi_unit') not in ['unknown', 'unavailable'] else 'no status yet' }} |
     - type: history-graph
       title: Drive scores, 4 weeks
       hours_to_show: 672
