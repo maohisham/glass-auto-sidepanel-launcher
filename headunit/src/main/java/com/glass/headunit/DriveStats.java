@@ -23,6 +23,7 @@ final class DriveStats {
         int score;
         float avgKmh, maxKmh, fuelL;
         float zone, smooth, eff, idle, bonus;   // the parts of the score, 0 to 100
+        int speedAlerts;           // times the speed alert sounded; sent to Home Assistant, not kept in the log
 
         static Drive of(EcoScore.Stats s, long start, long end) {
             Drive d = new Drive();

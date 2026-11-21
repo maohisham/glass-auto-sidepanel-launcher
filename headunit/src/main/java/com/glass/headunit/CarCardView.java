@@ -22,6 +22,7 @@ final class CarCardView extends FrameLayout {
 
     private final CarProfile car;
     private final TextView estChip;
+    private TextView detailLine;   // hidden on the short banner, so the two fuel chips always fit under the name
     private Bitmap own;
 
     CarCardView(Context ctx, boolean dark, CarProfile car, Bitmap ownPicture) {
@@ -55,7 +56,8 @@ final class CarCardView extends FrameLayout {
         int pad = Glass.dp(ctx, 12);
         band.setPadding(pad, Glass.dp(ctx, 10), pad, Glass.dp(ctx, 10));
         band.addView(label(ctx, car.name, 16, true, 0xFFFFFFFF));
-        band.addView(label(ctx, car.detail, 12, false, 0xB3FFFFFF));
+        detailLine = label(ctx, car.detail, 12, false, 0xB3FFFFFF);
+        band.addView(detailLine);
         LinearLayout chips = new LinearLayout(ctx);
         chips.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(-2, -2);
@@ -106,6 +108,7 @@ final class CarCardView extends FrameLayout {
     void setMaxHeightDp(int dp) {
         if (dp == maxHeightDp) return;
         maxHeightDp = dp;
+        if (detailLine != null) detailLine.setVisibility(dp < 150 ? GONE : VISIBLE);
         requestLayout();
     }
 

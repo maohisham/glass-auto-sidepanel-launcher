@@ -174,6 +174,9 @@ final class HaSender {
         });
     }
 
+    /** How many messages are waiting to be sent (as last counted). */
+    int waiting() { return waiting; }
+
     /** "Last sent 2 min ago · 0 waiting", "14 waiting · no signal", or why it stopped. */
     String status() {
         Settings s = Settings.of(app);

@@ -72,4 +72,24 @@ public class HaMessageTest {
     }
 
     @Test public void gradeIsOneOfFour() throws Exception { DriveStats.Drive d = new DriveStats.Drive(); d.score = 10; assertEquals("Poor", HaMessage.stopped("c", 0, 0, 0, d, 1.99, 3.87).getJSONObject("drive").getString("grade")); }
+
+    @Test public void totalsExplainTheScoreAndTheFuelEconomy() throws Exception {
+        DriveStats.Drive d = running(); d.km = 20f; d.fuelL = 1.5f; d.zone = 90.4f; d.smooth = 71.6f; d.eff = 80f; d.idle = 55f; d.bonus = 10f; d.speedAlerts = 3;
+        JSONObject dr = HaMessage.stopped("c", 0, 0, 0, d, 0, 0).getJSONObject("drive");   // no price: still has L/100 km
+        assertEquals(7.5, dr.getDouble("l_per_100km"), 1e-9); assertEquals(3, dr.getInt("speed_alerts"));
+        JSONObject p = dr.getJSONObject("parts");
+        assertEquals(90, p.getInt("zone")); assertEquals(72, p.getInt("smooth")); assertEquals(80, p.getInt("efficiency")); assertEquals(55, p.getInt("idle")); assertEquals(10, p.getInt("bonus"));
+    }
+    @Test public void noFuelEconomyWithoutFuelOrDistance() throws Exception { DriveStats.Drive d = running(); d.fuelL = 0; assertFalse(HaMessage.stopped("c", 0, 0, 0, d, 1.99, 3.87).getJSONObject("drive").has("l_per_100km")); }
+    @Test public void positionHasNavEtaOnlyWhileNavigating() throws Exception {
+        JSONObject a = HaMessage.withNavEta(HaMessage.position("c", 0, 0, 0, 0, 0, 0, 1f, 1, null, 0, 0), 1763164800000L);
+        assertEquals("2025-11-15T08:00:00+08:00", a.getString("nav_eta"));
+        assertFalse(HaMessage.withNavEta(HaMessage.position("c", 0, 0, 0, 0, 0, 0, 1f, 1, null, 0, 0), -1).has("nav_eta"));
+    }
+    @Test public void unitStatus() throws Exception {
+        JSONObject j = HaMessage.unitStatus("c", 0, "0.9.4-headunit", 21, 125, 3, 42, true);
+        assertEquals("unit_status", j.getString("type")); assertEquals("0.9.4-headunit", j.getString("app_version")); assertEquals(21, j.getInt("version_code"));
+        assertEquals(125, j.getLong("uptime_min")); assertEquals(3, j.getInt("queue_waiting")); assertEquals(42, j.getLong("gps_fix_age_s")); assertTrue(j.getBoolean("driving"));
+        assertFalse(HaMessage.unitStatus("c", 0, "v", 1, 0, 0, -1, false).has("gps_fix_age_s"));
+    }
 }

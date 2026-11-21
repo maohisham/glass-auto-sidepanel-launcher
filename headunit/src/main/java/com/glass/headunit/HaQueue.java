@@ -60,10 +60,10 @@ final class HaQueue {
 
     void removeFirst() { entries.pollFirst(); }
 
-    /** Drops what is more than a week old, then the oldest positions while there are too many. */
+    /** Drops what is more than a week old, then the oldest positions and unit statuses while there are too many. */
     void prune(long now) {
         for (Iterator<Entry> it = entries.iterator(); it.hasNext(); ) if (now - it.next().at > WEEK_MS) it.remove();
-        for (Iterator<Entry> it = entries.iterator(); it.hasNext() && entries.size() > MAX; ) if (it.next().type.equals("position")) it.remove();
+        for (Iterator<Entry> it = entries.iterator(); it.hasNext() && entries.size() > MAX; ) { String t = it.next().type; if (t.equals("position") || t.equals("unit_status")) it.remove(); }
         while (entries.size() > MAX) entries.pollFirst();
     }
 

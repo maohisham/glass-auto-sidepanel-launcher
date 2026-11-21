@@ -129,7 +129,7 @@ final class DriveScreen extends LinearLayout {
         LinearLayout car = column(), main = column(), why = column(), more = column();
         out = car;
         addCarCard(ctx);
-        if (card != null && live != null) card.setEstimate(live.estLPer100);
+        if (card != null) card.setEstimate(live != null ? live.estLPer100 : lPer100(sum[LAST]));   // with no trip going, the last drive's
         carStatus(ctx);
         if (!wide) out.addView(priceCard(false), gap(out.getChildCount() == 0 ? 0 : 12));   // wide: under the cost line
 
@@ -160,6 +160,9 @@ final class DriveScreen extends LinearLayout {
             }
         }
     }
+
+    /** L/100 km a set of drives used (0 when there is no fuel estimate or distance). */
+    private static float lPer100(DriveStats.Summary s) { return s != null && s.km > 0 && s.fuelL > 0 ? s.fuelL * 100f / s.km : 0f; }
 
     private LinearLayout column() {
         LinearLayout c = new LinearLayout(getContext());

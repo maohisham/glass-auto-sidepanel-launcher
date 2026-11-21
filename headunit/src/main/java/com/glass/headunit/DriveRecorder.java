@@ -38,8 +38,9 @@ public class DriveRecorder extends Service {
     private RouteLog route;
     private final SpeedAlertPolicy alertPolicy = new SpeedAlertPolicy();
     private SpeedAlert speedAlert;
-    private long startedAt, lastMoveAt;
+    private long startedAt, lastMoveAt, lastFixAt, lastStatusAt;
     private float lastAccuracy;
+    private static final long STATUS_EVERY_MS = 10 * 60_000L;   // how often Home Assistant hears from the unit itself
 
     /** Starts recording when anything uses the GPS. Call while the panel is on screen (Android then lets it keep the GPS). */
     static void start(Context c) {
@@ -103,6 +104,7 @@ public class DriveRecorder extends Service {
             long now = System.currentTimeMillis();
             handle(session.tick(now));
             save();
+            if (now - lastStatusAt >= STATUS_EVERY_MS) sendUnitStatus(now);
             if (!session.driving() && !panelVisible && now - Math.max(lastMoveAt, startedAt) >= DriveSession.PARKED_MS) {
                 Spike.log("recorder: stopped, parked 10 min");
                 stopSelf();
@@ -112,6 +114,19 @@ public class DriveRecorder extends Service {
         }
     };
 
+    /** Tells Home Assistant the unit is alive, which app it runs, how much is waiting to be sent and how fresh the GPS is. */
+    private void sendUnitStatus(long now) {
+        lastStatusAt = now;
+        Settings s = Settings.of(this);
+        if (!s.haOn()) return;
+        try {
+            android.content.pm.PackageInfo p = getPackageManager().getPackageInfo(getPackageName(), 0);
+            HaSender h = HaSender.get(this);
+            h.enqueue(HaMessage.unitStatus(s.haCarName(), now, p.versionName, p.versionCode, android.os.SystemClock.elapsedRealtime() / 60_000L,
+                    h.waiting(), lastFixAt > 0 ? (now - lastFixAt) / 1000 : -1, session.driving()));
+        } catch (Exception e) { Spike.log("recorder: could not read the app version (" + e.getClass().getSimpleName() + ")"); }
+    }
+
     private void onFix(float kmh, Location l) {
         long now = System.currentTimeMillis();
         Settings st = Settings.of(this);
@@ -120,7 +135,9 @@ public class DriveRecorder extends Service {
         if (st.speedAlert() && alertPolicy.onSpeed(kmh, st.speedLimit())) {
             if (speedAlert == null) speedAlert = new SpeedAlert(this);
             speedAlert.play();
+            DriveTrip.speedAlertSounded();
         }
+        lastFixAt = now;
         if (st.speedVolume()) adjustVolume(kmh);
         if (kmh >= DriveSession.MOVING_KMH) lastMoveAt = now;
         float heading = l.hasBearing() ? l.getBearing() : 0f;
@@ -135,6 +152,7 @@ public class DriveRecorder extends Service {
             switch (e.kind) {
                 case BEGIN:
                     route.begin(e.time);
+                    DriveTrip.resetSpeedAlerts();
                     Spike.log("recorder: drive began");
                     break;
                 case END:
@@ -146,10 +164,12 @@ public class DriveRecorder extends Service {
             if (e.kind == DriveSession.Kind.END) {
                 EcoScore trip = DriveTrip.trip();
                 DriveStats.Drive d = trip.isTripActive() ? DriveStats.Drive.of(trip.calculate(e.time), trip.tripStartMs(), e.time) : null;
+                if (d != null) d.speedAlerts = DriveTrip.speedAlerts();
                 DriveLog.save(this, trip, e.time);   // as it was when the car stopped
                 logEnded(e, d, session.endedBy());
                 DriveEvents.ended(this, e, d);
                 trip.reset();   // the next drive is a new trip
+                DriveTrip.resetSpeedAlerts();
             } else {
                 DriveEvents.publish(this, e, lastAccuracy);
             }

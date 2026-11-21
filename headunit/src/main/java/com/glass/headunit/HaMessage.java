@@ -73,6 +73,33 @@ final class HaMessage {
             put(o, "fuel_l", round(d.fuelL, 1));
             put(o, "cost_rm", round(FuelPrice.tenSen(d.fuelL * budi95), 2));
         }
+        if (d.fuelL > 0 && d.km > 0) put(o, "l_per_100km", round(d.fuelL * 100.0 / d.km, 1));   // needs no price
+        put(o, "speed_alerts", d.speedAlerts);
+        JSONObject parts = new JSONObject();   // why the score is what it is, each 0 to 100
+        put(parts, "zone", Math.round(d.zone));
+        put(parts, "smooth", Math.round(d.smooth));
+        put(parts, "efficiency", Math.round(d.eff));
+        put(parts, "idle", Math.round(d.idle));
+        put(parts, "bonus", Math.round(d.bonus));
+        put(o, "parts", parts);
+    }
+
+    /** Adds the arrival time Google Maps shows (while it is navigating) to a position. */
+    static JSONObject withNavEta(JSONObject position, long etaMs) {
+        if (etaMs > 0) put(position, "nav_eta", isoTime(etaMs, TimeZone.getDefault()));
+        return position;
+    }
+
+    /** The unit itself, so Home Assistant can tell "the car is parked" from "the unit has gone quiet". gpsFixAgeSec is -1 when there is none. */
+    static JSONObject unitStatus(String car, long time, String appVersion, int versionCode, long uptimeMin, int queueWaiting, long gpsFixAgeSec, boolean driving) {
+        JSONObject j = base("unit_status", car, time);
+        put(j, "app_version", appVersion);
+        put(j, "version_code", versionCode);
+        put(j, "uptime_min", uptimeMin);
+        put(j, "queue_waiting", queueWaiting);
+        if (gpsFixAgeSec >= 0) put(j, "gps_fix_age_s", gpsFixAgeSec);
+        put(j, "driving", driving);
+        return j;
     }
 
     /** The drive's results; the fuel fields only with a fuel estimate, the "without" ones only once prices are known. */
